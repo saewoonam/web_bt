@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+
+<html>
+<body>
+
+  <p>This prototype bluetooth interface over chrome </p>
+
+<p id="countP">counts???</p>
+<p id="cmdP">cmd???</p>
+<p id="writingP">logging???</p>
+
+<button id="counts">get counts</button>
+<button id="readCmd">readCmd</button>
+<button id="info">info</button>
+<button id="disconnect">disconnect</button>
+<button id="download" onclick="download()">download</button>
+
+<script>
+class NISTET {
+
+constructor() {
+  this.device = null;
+  this.onDisconnected = this.onDisconnected.bind(this);
+}
+
+request() {
+  let options = {
+    "filters": [{
+      "namePrefix": "NIST",
+      "services": ["7b183224-9168-443e-a927-7aeea07e8105"]
+    }]
+  };
+  return navigator.bluetooth.requestDevice(options)
+  .then(device => {
+    this.device = device;
+    this.device.addEventListener('gattserverdisconnected', this.onDisconnected);
+  });
+}
+
+connect() {
+  if (!this.device) {
+    return Promise.reject('Device is not connected.');
+  }
+  return this.device.gatt.connect();
+}
+
+readCounts() {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("292bd3d2-14ff-45ed-9343-55d125edb721"))
+  .then(characteristic => characteristic.readValue());
+}
+
+readCmd() {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("56cd7757-5f47-4dcd-a787-07d648956068"))
+  .then(characteristic => characteristic.readValue());
+}
+
+writeCmd(data) {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("56cd7757-5f47-4dcd-a787-07d648956068"))
+  .then(characteristic => characteristic.writeValue(data));
+}
+
+readData() {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+  .then(characteristic => characteristic.readValue());
+}
+
+writeData(data) {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+  .then(characteristic => characteristic.writeValue(data));
+}
+
+startDataNotifications(listener) {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+  .then(characteristic => characteristic.startNotifications())
+  .then(characteristic => characteristic.addEventListener('characteristicvaluechanged', listener));
+}
+
+stopDataNotifications(listener) {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+  .then(characteristic => characteristic.stopNotifications())
+  .then(characteristic => characteristic.removeEventListener('characteristicvaluechanged', listener));
+}
+
+disconnect() {
+  if (!this.device) {
+    return Promise.reject('Device is not connected.');
+  }
+  return this.device.gatt.disconnect();
+}
+
+onDisconnected() {
+  console.log('Device is disconnected.');
+}
+}
+
+function handleDataI(event) {
+  var value = event.target.value.getUint8();
+  var msg; 
+  console.log('Received ' + value + typeof(value));
+  switch (value) {
+    case 0: msg = 'Off'; break;
+    case 1: msg =  'On'; break;
+    default: msg =  '??';
+  }
+  msg = "Logging to flash: " + msg;
+  console.log(msg)
+  document.getElementById("writingP").innerHTML = msg;
+  nISTET.disconnect();
+  // TODO: Parse Heart Rate Measurement value.
+  // See https://github.com/WebBluetoothCG/demos/blob/gh-pages/heart-rate-sensor/heartRateSensor.js
+}
+
+function download() {
+  var fileContent = "My epic novel that I don't want to lose.";
+  var bb = new Blob([fileContent ], { type: 'application/octet-stream' });
+  var a = document.createElement('a');
+  a.download = 'download.bin';
+  a.href = window.URL.createObjectURL(bb);
+  a.click();
+}
+
+var nISTET = new NISTET();
+
+document.querySelector('#counts').addEventListener('click', event => {
+nISTET.request()
+.then(_ => document.getElementById("countP").innerHTML = "getting counts")
+.then(_ => nISTET.connect())
+.then(_ => { return nISTET.readCounts(); })
+.then(value => { 
+	let count = value.getUint32(0, true);
+    document.getElementById("countP").innerHTML = "counts: "+count;
+    /* Do something with nISTET... */})
+.catch(error => { console.log(error) });
+});
+
+document.querySelector('#readCmd').addEventListener('click', event => {
+nISTET.request()
+.then(_ => document.getElementById("cmdP").innerHTML = "getting previous cmd")
+.then(_ => nISTET.connect())
+.then(_ => { return nISTET.readCmd(); })
+.then(value => { 
+	console.log(value);
+	let cmd = String.fromCharCode(value.getUint8());
+    document.getElementById("cmdP").innerHTML = 'previous cmd: '+cmd;
+    /* Do something with nISTET... */})
+.then(_ => { nISTET.disconnect(); })
+.catch(error => { console.log(error) });
+});
+
+document.querySelector('#disconnect').addEventListener('click', event => {
+nISTET.disconnect();
+});
+
+document.querySelector('#info').addEventListener('click', event => {
+nISTET.request()
+.then(_ => nISTET.connect())
+.then(_ => nISTET.startDataNotifications(handleDataI) )
+.then(_ => {
+	let value = Uint8Array.of('I'.charCodeAt(0))
+	nISTET.writeCmd(value)
+	})
+.then(Promise.resolve())
+.catch(error => { console.log(error) });
+});
+</script>
+
+</body>
+</html>
