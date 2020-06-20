@@ -125,9 +125,9 @@ function handleDataI(event) {
   // See https://github.com/WebBluetoothCG/demos/blob/gh-pages/heart-rate-sensor/heartRateSensor.js
 }
 
-function download() {
-  var fileContent = "My epic novel that I don't want to lose.";
-  var bb = new Blob([fileContent ], { type: 'application/octet-stream' });
+function download(filecontent) {
+  // var fileContent = "My epic novel that I don't want to lose.";
+  var bb = new Blob([filecontent ], { type: 'application/octet-stream' });
   var a = document.createElement('a');
   a.download = 'download.bin';
   a.href = window.URL.createObjectURL(bb);
@@ -182,13 +182,51 @@ var get_idx = 0;
 var get_idx_array = new ArrayBuffer(4);
 var get_idx_view = new DataView(get_idx_array);
 var done = false;
+var blob;
 
 function handleDataf(event) {
-  var value = event.target.value
-  var msg; 
-  console.log(value)
-  console.log('handleDataf: Received ' + value + typeof(value));
-  done = true;
+	var value = event.target.value
+	var msg; 
+    if (event.target.value.byteLength==4) {
+		get_idx = 0;
+		download(blob);
+		done = true;
+		return;
+	}
+	// Should check length first... need to fix this later
+	rcvd_idx = value.getUint32(0, true);
+	if (get_idx==0) {
+	    handleDataf.packet_size = value.buffer.byteLength;	
+		console.log('packet size: ' + handleDataf.packet_size);
+	} else {
+		;
+	}
+    console.log("Rcvd_idx " + rcvd_idx);
+	// Check that rcvd_idx is correct... otherwise ask for it again
+	let packet_size = handleDataf.packet_size;
+	if (rcvd_idx==get_idx) {
+		// should check packet_size... Leave for later
+		if(rcvd_idx == 0) { // no concat if first packet
+			blob = new Uint8Array(value.buffer.byteLength-4);
+			console.log("blob.length "+ blob.length)
+			blob.set(value.buffer.slice(4,), 4);
+			handleDataf.total = blob.length;
+		} else {
+			let oldblob = blob;
+    		let buffer = new Uint8Array(value.buffer.slice(4,));
+			blob = concatTypedArrays(oldblob, buffer);
+			handleDataf.total = blob.length;
+		}
+		get_idx = get_idx + 1;
+	} else {
+		console.log("rcvd_idx, get_idx" + rcvd_idx + "," + get_idx);
+		done = true;
+	}
+	console.log("total "+blob.length+" try to send get_idx " + get_idx);
+	get_idx_view.setUint32(0, get_idx, true);
+	nISTET.writeData(get_idx_array);
+    // sleep(50);
+	// done=true;
 }
 
 function nothing() {
@@ -224,23 +262,25 @@ nISTET.request()
 .then(_ =>{
 	console.log("try to send get_idx")
 	get_idx_view.setUint32(0, get_idx, true);
-	return nISTET.writeData(get_idx_array);
+	nISTET.writeData(get_idx_array);
 	})
-.then(p => console.log(typeof(p)))
-.then(_ => sleep(100))
+/*
+.then(_ => sleep(1000))
 .then(_ =>{ 
     console.log("promise to send get_idx done");
     while (!done) {
-		console.log("done" + done)
-		setTimeout(nothing, 1000);
+		console.log(Date.now() + " done " + done)
+		console.log("total received: "+handleDataf.total);
+		sleep(10000);
+
 	}
+	get_idx = 0;
 })
 .then(_ => {
 	let value = Uint8Array.of('F'.charCodeAt(0))
 	nISTET.writeCmd(value)
 	})
-.then(Promise.resolve())
-
+*/
 .catch(error => { console.log(error) });
 });
 </script>
