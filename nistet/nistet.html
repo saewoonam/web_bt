@@ -13,7 +13,8 @@
 <button id="readCmd">readCmd</button>
 <button id="info">info</button>
 <button id="disconnect">disconnect</button>
-<button id="download" onclick="download()">download</button>
+<button id="fetch" >fetch</button>
+<button id="download" onclick="download()">download test blob</button>
 
 <script>
 class NISTET {
@@ -100,6 +101,13 @@ onDisconnected() {
 }
 }
 
+function concatTypedArrays(a, b) { // a, b TypedArray of same type
+    var c = new (a.constructor)(a.length + b.length);
+    c.set(a, 0);
+    c.set(b, a.length);
+    return c;
+}
+
 function handleDataI(event) {
   var value = event.target.value.getUint8();
   var msg; 
@@ -166,7 +174,73 @@ nISTET.request()
 	let value = Uint8Array.of('I'.charCodeAt(0))
 	nISTET.writeCmd(value)
 	})
+.then(_ => Promise.resolve())
+.catch(error => { console.log(error) });
+});
+
+var get_idx = 0;
+var get_idx_array = new ArrayBuffer(4);
+var get_idx_view = new DataView(get_idx_array);
+var done = false;
+
+function handleDataf(event) {
+  var value = event.target.value
+  var msg; 
+  console.log(value)
+  console.log('handleDataf: Received ' + value + typeof(value));
+  done = true;
+}
+
+function nothing() {
+	console.log("nothing: " + Date.now())
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+document.querySelector('#fetch').addEventListener('click', event => {
+nISTET.request()
+.then(_ => nISTET.connect())
+.then(_ => nISTET.startDataNotifications(handleDataf) )
+.then(_ => sleep(1000))
+.then(_ => { /* Start to try to xfer */
+	let value = Uint8Array.of('f'.charCodeAt(0));
+	nISTET.writeCmd(value);
+    console.log("Trying to send f");
+	})
+/*
+.then(_ => sleep(250))
+.then(_ => console.log("try to read back") )
+.then(_ => { return nISTET.readCmd(); })
+.then(value => { 
+	let cmd = String.fromCharCode(value.getUint8());
+	console.log(cmd)
+    document.getElementById("cmdP").innerHTML = 'previous cmd: '+cmd;
+	})
+// .then(_ => sleep(100))
+*/
+.then(_ => sleep(250))
+.then(_ =>{
+	console.log("try to send get_idx")
+	get_idx_view.setUint32(0, get_idx, true);
+	return nISTET.writeData(get_idx_array);
+	})
+.then(p => console.log(typeof(p)))
+.then(_ => sleep(100))
+.then(_ =>{ 
+    console.log("promise to send get_idx done");
+    while (!done) {
+		console.log("done" + done)
+		setTimeout(nothing, 1000);
+	}
+})
+.then(_ => {
+	let value = Uint8Array.of('F'.charCodeAt(0))
+	nISTET.writeCmd(value)
+	})
 .then(Promise.resolve())
+
 .catch(error => { console.log(error) });
 });
 </script>
