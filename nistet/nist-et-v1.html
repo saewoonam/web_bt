@@ -355,6 +355,8 @@
                 console.log(count + ", " + (count / (1 << 15)));
                 document.getElementById("counts").value = count / (1 << 15);
                 sleep(1000);
+                document.getElementById("info").click();
+
             })
             .catch(error => {
                 console.log(error)
