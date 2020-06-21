@@ -352,15 +352,13 @@
             })
             .then(_ => readCounts())
             .then(value => {
-                startDataNotifications(handleDataI);
-                let cmd = Uint8Array.of('I'.charCodeAt(0))
-                writeCmd(cmd)
+                // startDataNotifications(handleDataI);
+                // let cmd = Uint8Array.of('I'.charCodeAt(0))
+                // writeCmd(cmd)
                 let count = value.getUint32(0, true);
                 console.log(count + ", " + (count / (1 << 15)));
                 document.getElementById("counts").value = count / (1 << 15);
-                sleep(1000);
-                document.getElementById("info").click();
-
+                // sleep(1000);
             })
             .catch(error => {
                 console.log(error)
@@ -394,11 +392,13 @@
     document.querySelector('#info').addEventListener('click', event => {
         console.log("info");
         startDataNotifications(handleDataI)
-            .then(() => readCounts())
             .then(() => this.delayPromise(1000))
-            .then(value => {
+            .then(() => {
                 let cmd = Uint8Array.of('I'.charCodeAt(0))
                 writeCmd(cmd)
+            })
+            .then(() => readCounts())
+            .then(value => {
                 let count = value.getUint32(0, true);
                 console.log(count + ", " + (count / (1 << 15)));
                 document.getElementById("counts").value = count / (1 << 15);
