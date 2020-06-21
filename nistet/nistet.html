@@ -4,21 +4,28 @@
 <body>
 
   <p>This prototype bluetooth interface over chrome </p>
-
+<div>
 <p id="countP">counts???</p>
-<p id="cmdP">cmd???</p>
+<p hidden id="cmdP">cmd???</p>
 <p id="writingP">logging???</p>
 <p id="progressP"></p>
+</div>
 
+<p>
+<div class="btn-group1">
 <button hidden id="counts">get counts</button>
-<button id="readCmd">readCmd</button>
+<button hidden id="readCmd">readCmd</button>
 <button id="info">info</button>
-<button id="disconnect">disconnect</button>
 <button id="fetch" >fetch</button>
+<button id="disconnect">disconnect</button>
+</div>
+</p>		
+<div class="btn-group2">
 <button id="start" >start recording</button>
 <button id="stop" >stop recording</button>
 <button id="erase" >erase flash</button>
 <button hidden id="download" onclick="download()">download test blob</button>
+</div>
 
 <script>
 class NISTET {
@@ -289,10 +296,14 @@ document.querySelector('#erase').addEventListener('click', event => {
 
 document.querySelector('#start').addEventListener('click', event => {
 	send_cmd('w') .catch(error => { console.log(error) });
+    document.querySelector('#start').disabled = true;
+    document.querySelector('#stop').disabled = false;
 });
 
 document.querySelector('#stop').addEventListener('click', event => {
 	send_cmd('s') .catch(error => { console.log(error) });
+    document.querySelector('#start').disabled = false;
+    document.querySelector('#stop').disabled = true;
 });
 
 document.querySelector('#fetch').addEventListener('click', event => {
