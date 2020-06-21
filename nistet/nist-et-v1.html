@@ -401,8 +401,9 @@
                 writeCmd(cmd)
             })
             // .then(() => this.delayPromise(1000))
-            .then(() =>
-                return readCounts())
+            .then(_ => {
+                return readCounts();
+            })
             .then(value => {
                 let count = value.getUint32(0, true);
                 console.log(count + ", " + (count / (1 << 15)));
