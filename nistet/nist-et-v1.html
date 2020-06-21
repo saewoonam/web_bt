@@ -400,8 +400,9 @@
                 let cmd = Uint8Array.of('I'.charCodeAt(0))
                 writeCmd(cmd)
             })
-            .then(() => this.delayPromise(1000))
-            .then(() => readCounts())
+            // .then(() => this.delayPromise(1000))
+            .then(() =>
+                return readCounts())
             .then(value => {
                 let count = value.getUint32(0, true);
                 console.log(count + ", " + (count / (1 << 15)));
