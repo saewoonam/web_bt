@@ -404,6 +404,7 @@
                 console.log(error)
             });
         // .then(() => this.delayPromise(1000))
+        console.log("Try to read counts now.")
         readCounts()
             .then(value => {
                 let count = value.getUint32(0, true);
