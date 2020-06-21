@@ -483,14 +483,17 @@
                 writeCmd(value);
                 console.log("Trying to send f");
             })
-            .then(_ => {
-                return readCounts();
-            })
-            .then(value => {
-                let count = value.getUint32(0, true);
-                document.getElementById("counts").value = count / (1 << 15);
-                filesize = count * 32;
-            })
+            .then(_ => filesize = 1862 * 32;)
+            /*
+                        .then(_ => {
+                            return readCounts();
+                        })
+                        .then(value => {
+                            let count = value.getUint32(0, true);
+                            document.getElementById("counts").value = count / (1 << 15);
+                            filesize = count * 32;
+                        })
+            */
             .then(_ => {
                 console.log("try to send get_idx")
                 get_idx_view.setUint32(0, get_idx, true);
