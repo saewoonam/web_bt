@@ -400,7 +400,7 @@
                 let cmd = Uint8Array.of('I'.charCodeAt(0))
                 writeCmd(cmd)
             })
-            .then(() => this.delayPromise(10))
+            .then(() => this.delayPromise(1000))
             .then(() => readCounts())
             .then(value => {
                 let count = value.getUint32(0, true);
