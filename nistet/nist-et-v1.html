@@ -354,6 +354,7 @@
                 let count = value.getUint32(0, true);
                 console.log(count + ", " + (count / (1 << 15)));
                 document.getElementById("counts").value = count / (1 << 15);
+                sleep(1000);
             })
             .catch(error => {
                 console.log(error)
@@ -424,7 +425,7 @@
         });
     });
 
-    document.querySelector('#stop').addEventListener('click', event => {
+    document.querySelector('#unmark').addEventListener('click', event => {
         let cmd = Uint8Array.of('U'.charCodeAt(0))
         writeCmd(cmd).catch(error => {
             console.log(error)
