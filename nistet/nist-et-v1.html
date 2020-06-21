@@ -396,7 +396,7 @@
     document.querySelector('#info').addEventListener('click', event => {
         console.log("info");
         startDataNotifications(handleDataI)
-            .then(() => this.delayPromise(1000))
+            //.then(() => this.delayPromise(1000))
             .then(() => {
                 let cmd = Uint8Array.of('I'.charCodeAt(0))
                 writeCmd(cmd)
@@ -407,7 +407,7 @@
                 console.log(count + ", " + (count / (1 << 15)));
                 document.getElementById("counts").value = count / (1 << 15);
             })
-            .then(() => this.delayPromise(1000))
+            //.then(() => this.delayPromise(1000))
             .catch(error => {
                 console.log(error)
             });
