@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+
+<html>
+<body>
+
+  <p>This prototype bluetooth interface over chrome </p>
+
+<p id="countP">counts???</p>
+<p id="cmdP">cmd???</p>
+<p id="writingP">logging???</p>
+<p id="progressP"></p>
+
+<button hidden id="counts">get counts</button>
+<button id="readCmd">readCmd</button>
+<button id="info">info</button>
+<button id="disconnect">disconnect</button>
+<button id="fetch" >fetch</button>
+<button id="start" >start recording</button>
+<button id="stop" >stop recording</button>
+<button id="erase" >erase flash</button>
+<button hidden id="download" onclick="download()">download test blob</button>
+
+<script>
+class NISTET {
+
+constructor() {
+  this.device = null;
+  this.onDisconnected = this.onDisconnected.bind(this);
+}
+
+request() {
+  let options = {
+    "filters": [{
+      "namePrefix": "NIST",
+      "services": ["7b183224-9168-443e-a927-7aeea07e8105"]
+    }]
+  };
+  return navigator.bluetooth.requestDevice(options)
+  .then(device => {
+    this.device = device;
+    this.device.addEventListener('gattserverdisconnected', this.onDisconnected);
+  });
+}
+
+connect() {
+  if (!this.device) {
+    return Promise.reject('Device is not connected.');
+  }
+  return this.device.gatt.connect();
+}
+
+readCounts() {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("292bd3d2-14ff-45ed-9343-55d125edb721"))
+  .then(characteristic => characteristic.readValue());
+}
+
+readCmd() {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("56cd7757-5f47-4dcd-a787-07d648956068"))
+  .then(characteristic => characteristic.readValue());
+}
+
+writeCmd(data) {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("56cd7757-5f47-4dcd-a787-07d648956068"))
+  .then(characteristic => characteristic.writeValue(data));
+}
+
+readData() {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+  .then(characteristic => characteristic.readValue());
+}
+
+writeData(data) {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+  .then(characteristic => characteristic.writeValue(data));
+}
+
+startDataNotifications(listener) {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+  .then(characteristic => characteristic.startNotifications())
+  .then(characteristic => characteristic.addEventListener('characteristicvaluechanged', listener));
+}
+
+stopDataNotifications(listener) {
+  return this.device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+  .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+  .then(characteristic => characteristic.stopNotifications())
+  .then(characteristic => characteristic.removeEventListener('characteristicvaluechanged', listener));
+}
+
+disconnect() {
+  if (!this.device) {
+    return Promise.reject('Device is not connected.');
+  }
+  return this.device.gatt.disconnect();
+}
+
+onDisconnected() {
+  console.log('Device is disconnected.');
+}
+}
+
+function concatTypedArrays(a, b) { // a, b TypedArray of same type
+    var c = new (a.constructor)(a.length + b.length);
+    c.set(a, 0);
+    c.set(b, a.length);
+    return c;
+}
+
+function handleDataI(event) {
+  var value = event.target.value.getUint8();
+  var msg; 
+  console.log('Received ' + value + typeof(value));
+  switch (value) {
+    case 0: msg = 'Off'; break;
+    case 1: msg =  'On'; break;
+    default: msg =  '??';
+  }
+  msg = "Logging to flash: " + msg;
+  console.log(msg)
+  document.getElementById("writingP").innerHTML = msg;
+  nISTET.disconnect();
+  // TODO: Parse Heart Rate Measurement value.
+  // See https://github.com/WebBluetoothCG/demos/blob/gh-pages/heart-rate-sensor/heartRateSensor.js
+}
+
+function download(filecontent) {
+  // var fileContent = "My epic novel that I don't want to lose.";
+  var bb = new Blob([filecontent ], { type: 'application/octet-stream' });
+  var a = document.createElement('a');
+  var d = new Date();
+  var n = d.toISOString();
+  n = n.split('.');
+  n = n[0];
+  console.log(typeof(n));
+  n = n.replace(/-/g, '');
+  n = n.replace('T', '_');
+  n = n.replace(/:/g, '');
+  n = n+'_GMT'
+  filename = 'raw_' + nISTET.device.name +'_' + n + '.bin'
+  console.log('filename:'+filename)
+  a.download = filename;
+  a.href = window.URL.createObjectURL(bb);
+  a.click();
+}
+
+var nISTET = new NISTET();
+
+document.querySelector('#counts').addEventListener('click', event => {
+nISTET.request()
+.then(_ => document.getElementById("countP").innerHTML = "getting counts")
+.then(_ => nISTET.connect())
+// .then(_ => console.log(nISTET.device))
+.then(_ => {  return nISTET.readCounts(); })
+.then(value => { 
+	let count = value.getUint32(0, true);
+    document.getElementById("countP").innerHTML = "counts: "+count;
+    /* Do something with nISTET... */})
+.catch(error => { console.log(error) });
+});
+
+document.querySelector('#readCmd').addEventListener('click', event => {
+nISTET.request()
+.then(_ => document.getElementById("cmdP").innerHTML = "getting previous cmd")
+.then(_ => nISTET.connect())
+.then(_ => { return nISTET.readCmd(); })
+.then(value => { 
+	console.log(value);
+	let cmd = String.fromCharCode(value.getUint8());
+    document.getElementById("cmdP").innerHTML = 'previous cmd: '+cmd;
+    /* Do something with nISTET... */})
+.then(_ => { nISTET.disconnect(); })
+.catch(error => { console.log(error) });
+});
+
+document.querySelector('#disconnect').addEventListener('click', event => {
+nISTET.disconnect();
+});
+
+document.querySelector('#info').addEventListener('click', event => {
+nISTET.request()
+.then(_ => nISTET.connect())
+.then(_ => {  return nISTET.readCounts(); })
+.then(value => { 
+	nISTET.startDataNotifications(handleDataI);
+	let cmd = Uint8Array.of('I'.charCodeAt(0))
+	nISTET.writeCmd(cmd)
+	let count = value.getUint32(0, true);
+    document.getElementById("countP").innerHTML = "counts: "+count;
+    })
+.catch(error => { console.log(error) });
+});
+
+var get_idx = 0;
+var get_idx_array = new ArrayBuffer(4);
+var get_idx_view = new DataView(get_idx_array);
+var done = false;
+var blob;
+var filesize;
+
+function handleDataf(event) {
+	var value = event.target.value
+	var msg; 
+	if (event.target.value.byteLength==0) {
+		console.log("in handleDataf... no data in event");
+	}
+    if (event.target.value.byteLength==4) {
+		get_idx = 0;
+		download(blob);
+  		nISTET.disconnect();
+		done = true;
+		return;
+	}
+	// Should check length first... need to fix this later
+	rcvd_idx = value.getUint32(0, true);
+	if (get_idx==0) {
+	    handleDataf.packet_size = value.buffer.byteLength;	
+		console.log('packet size: ' + handleDataf.packet_size);
+	} else {
+		;
+	}
+    console.log("Rcvd_idx " + rcvd_idx);
+	// Check that rcvd_idx is correct... otherwise ask for it again
+	let packet_size = handleDataf.packet_size;
+	if (rcvd_idx==get_idx) {
+		// should check packet_size... Leave for later
+		if(rcvd_idx == 0) { // no concat if first packet
+			blob = new Uint8Array(value.buffer.byteLength-4);
+			console.log("blob.length "+ blob.length)
+			blob.set(value.buffer.slice(4,), 4);
+			handleDataf.total = blob.length;
+		} else {
+			let oldblob = blob;
+    		let buffer = new Uint8Array(value.buffer.slice(4,));
+			blob = concatTypedArrays(oldblob, buffer);
+			handleDataf.total = blob.length;
+		}
+		get_idx = get_idx + 1;
+	} else {
+		console.log("rcvd_idx, get_idx" + rcvd_idx + "," + get_idx);
+		done = true;
+	}
+
+	console.log("total "+blob.length+" try to send get_idx " + get_idx);
+
+	document.getElementById("progressP").innerHTML = blob.length + "/ "+filesize;
+
+    if (blob.length == filesize) {
+		console.log("Got everything exactly. ")
+		get_idx = 0;
+		download(blob);
+  		nISTET.disconnect();
+		done = true;
+		return;
+	}
+    
+	get_idx_view.setUint32(0, get_idx, true);
+	nISTET.writeData(get_idx_array);
+    // sleep(50);
+	// done=true;
+}
+
+function nothing() {
+	console.log("nothing: " + Date.now())
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function send_cmd(cmd) {
+return nISTET.request()
+.then(_ => nISTET.connect())
+.then(_ => { /* Start to try to xfer */
+	let value = Uint8Array.of(cmd.charCodeAt(0));
+	nISTET.writeCmd(value);
+    console.log("Trying to send "+cmd);
+	});
+}
+
+document.querySelector('#erase').addEventListener('click', event => {
+	send_cmd('C') .catch(error => { console.log(error) });
+});
+
+document.querySelector('#start').addEventListener('click', event => {
+	send_cmd('w') .catch(error => { console.log(error) });
+});
+
+document.querySelector('#stop').addEventListener('click', event => {
+	send_cmd('s') .catch(error => { console.log(error) });
+});
+
+document.querySelector('#fetch').addEventListener('click', event => {
+nISTET.request()
+.then(_ => nISTET.connect())
+.then(_ => nISTET.startDataNotifications(handleDataf) )
+.then(_ => { /* Start to try to xfer */
+	let value = Uint8Array.of('f'.charCodeAt(0));
+	nISTET.writeCmd(value);
+    console.log("Trying to send f");
+	})
+.then(_ => {  return nISTET.readCounts(); })
+.then(value => { 
+	let count = value.getUint32(0, true);
+    document.getElementById("countP").innerHTML = "counts: "+count;
+	filesize = count*32;
+    })
+/*
+.then(_ => sleep(250))
+.then(_ => console.log("try to read back") )
+.then(_ => { return nISTET.readCmd(); })
+.then(value => { 
+	let cmd = String.fromCharCode(value.getUint8());
+	console.log(cmd)
+    document.getElementById("cmdP").innerHTML = 'previous cmd: '+cmd;
+	})
+// .then(_ => sleep(100))
+*/
+// .then(_ => sleep(250))
+.then(_ =>{
+	console.log("try to send get_idx")
+	get_idx_view.setUint32(0, get_idx, true);
+	nISTET.writeData(get_idx_array);
+	})
+/*
+.then(_ => sleep(1000))
+.then(_ =>{ 
+    console.log("promise to send get_idx done");
+    while (!done) {
+		console.log(Date.now() + " done " + done)
+		console.log("total received: "+handleDataf.total);
+		sleep(10000);
+
+	}
+	get_idx = 0;
+})
+.then(_ => {
+	let value = Uint8Array.of('F'.charCodeAt(0))
+	nISTET.writeCmd(value)
+	})
+*/
+.catch(error => { console.log(error) });
+});
+</script>
+
+</body>
+</html>
