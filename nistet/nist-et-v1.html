@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 
 <html>
+<meta name="viewport" content="width = device-width">
+
 <style>
     /*button { 
     color:#050; 
@@ -67,8 +69,14 @@
     </div>
     <p>
         <div>
+            <label> memory use</label>
             <progress id="counts" value=0></progress>
         </div>
+        <div>
+            <label id="fileprogress_label" style="visibility:hidden;"> file progress</label>
+            <progress id="fileprogress" style="visibility:hidden;" value=0></progress>
+        </div>
+
         <div>
             <button id="info" disabled>check status</button>
         </div>
@@ -98,10 +106,6 @@
     </p>
 
     <p>
-        <div>
-            <progress id="fileprogress" value=0></progress>
-        </div>
-
     </p>
     <div hidden>
         <p id="countP">counts???</p>
@@ -121,6 +125,9 @@
 <script>
     var etDevice;
     var service = "7b183224-9168-443e-a927-7aeea07e8105";
+    console.log(document.getElementById("fileprogress"));
+    console.log(document.getElementById("fileprogress").style.visibility);
+    console.log(document.getElementById("fileprogress").hidden);
 
     function onDisconnected() {
         console.log('Device is disconnected.');
@@ -252,6 +259,13 @@
         return c;
     }
 
+    function fileprogress_state(state) {
+        elt = document.getElementById("fileprogress");
+        elt.style.visibility = state;
+        elt = document.getElementById("fileprogress_label");
+        elt.style.visibility = state;
+    }
+
     function handleDataf(event) {
         var value = event.target.value
         var msg;
@@ -262,6 +276,7 @@
             get_idx = 0;
             download(blob);
             stopDataNotifications(handleDataf);
+            fileprogress_state('hidden')
             // disconnect();
 
             done = true;
@@ -299,8 +314,7 @@
 
         // console.log("total " + blob.length + " try to send get_idx " + get_idx);
         elt = document.getElementById("fileprogress");
-
-        elt.style.visibility = 'visible';
+        // console.log(elt.style.visibility);
         elt.value = blob.length / filesize;
 
         if (blob.length == filesize) {
@@ -308,7 +322,7 @@
             get_idx = 0;
             download(blob);
             stopDataNotifications(handleDataf);
-
+            fileprogress_state('hidden')
             // disconnect();
             done = true;
             return;
@@ -402,6 +416,7 @@
             .then(_ => startDataNotifications(handleDataf))
 
             .then(_ => {
+                fileprogress_state('visible');
                 /* Start to try to xfer */
                 let value = Uint8Array.of('f'.charCodeAt(0));
                 writeCmd(value);
