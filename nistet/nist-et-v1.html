@@ -396,11 +396,11 @@
     document.querySelector('#info').addEventListener('click', event => {
         console.log("info");
         startDataNotifications(handleDataI)
-            //.then(() => this.delayPromise(1000))
             .then(() => {
                 let cmd = Uint8Array.of('I'.charCodeAt(0))
                 writeCmd(cmd)
             })
+            .then(() => this.delayPromise(10))
             .then(() => readCounts())
             .then(value => {
                 let count = value.getUint32(0, true);
