@@ -336,30 +336,28 @@
 
 
     document.querySelector('#connect').addEventListener('click', event => {
-            console.log("connect")
-            requestDevice()
-                .then(_ => {
-                    console.log(etDevice);
-                    document.querySelector("#name").innerHTML = "connected: " + etDevice.name;
-                    var b = document.querySelectorAll("button")
-                    for (button in b) {
-                        b[button].disabled = false;
-                    }
-                })
-                .then(_ => readCounts())
-                .then(value => {
-                    startDataNotifications(handleDataI);
-                    let cmd = Uint8Array.of('I'.charCodeAt(0))
-                    writeCmd(cmd)
-                    let count = value.getUint32(0, true);
-                    console.log(count + ", " + (count / (1 << 15)));
-                    document.getElementById("counts").value = count / (1 << 15);
-                })
-
-        })
-        .catch(error => {
-            console.log(error)
-        });
+        console.log("connect")
+        requestDevice()
+            .then(_ => {
+                console.log(etDevice);
+                document.querySelector("#name").innerHTML = "connected: " + etDevice.name;
+                var b = document.querySelectorAll("button")
+                for (button in b) {
+                    b[button].disabled = false;
+                }
+            })
+            .then(_ => readCounts())
+            .then(value => {
+                startDataNotifications(handleDataI);
+                let cmd = Uint8Array.of('I'.charCodeAt(0))
+                writeCmd(cmd)
+                let count = value.getUint32(0, true);
+                console.log(count + ", " + (count / (1 << 15)));
+                document.getElementById("counts").value = count / (1 << 15);
+            })
+            .catch(error => {
+                console.log(error)
+            });
     });
     document.querySelector('#disconnect').addEventListener('click', event => {
         console.log("disconnect");
