@@ -8,13 +8,17 @@
 <p id="countP">counts???</p>
 <p id="cmdP">cmd???</p>
 <p id="writingP">logging???</p>
+<p id="progressP"></p>
 
-<button id="counts">get counts</button>
+<button hidden id="counts">get counts</button>
 <button id="readCmd">readCmd</button>
 <button id="info">info</button>
 <button id="disconnect">disconnect</button>
 <button id="fetch" >fetch</button>
-<button id="download" onclick="download()">download test blob</button>
+<button id="start" >start recording</button>
+<button id="stop" >stop recording</button>
+<button id="erase" >erase flash</button>
+<button hidden id="download" onclick="download()">download test blob</button>
 
 <script>
 class NISTET {
@@ -129,7 +133,18 @@ function download(filecontent) {
   // var fileContent = "My epic novel that I don't want to lose.";
   var bb = new Blob([filecontent ], { type: 'application/octet-stream' });
   var a = document.createElement('a');
-  a.download = 'download.bin';
+  var d = new Date();
+  var n = d.toISOString();
+  n = n.split('.');
+  n = n[0];
+  console.log(typeof(n));
+  n = n.replace(/-/g, '');
+  n = n.replace('T', '_');
+  n = n.replace(/:/g, '');
+  n = n+'_GMT'
+  filename = 'raw_' + nISTET.device.name +'_' + n + '.bin'
+  console.log('filename:'+filename)
+  a.download = filename;
   a.href = window.URL.createObjectURL(bb);
   a.click();
 }
@@ -140,7 +155,8 @@ document.querySelector('#counts').addEventListener('click', event => {
 nISTET.request()
 .then(_ => document.getElementById("countP").innerHTML = "getting counts")
 .then(_ => nISTET.connect())
-.then(_ => { return nISTET.readCounts(); })
+// .then(_ => console.log(nISTET.device))
+.then(_ => {  return nISTET.readCounts(); })
 .then(value => { 
 	let count = value.getUint32(0, true);
     document.getElementById("countP").innerHTML = "counts: "+count;
@@ -169,12 +185,14 @@ nISTET.disconnect();
 document.querySelector('#info').addEventListener('click', event => {
 nISTET.request()
 .then(_ => nISTET.connect())
-.then(_ => nISTET.startDataNotifications(handleDataI) )
-.then(_ => {
-	let value = Uint8Array.of('I'.charCodeAt(0))
-	nISTET.writeCmd(value)
-	})
-.then(_ => Promise.resolve())
+.then(_ => {  return nISTET.readCounts(); })
+.then(value => { 
+	nISTET.startDataNotifications(handleDataI);
+	let cmd = Uint8Array.of('I'.charCodeAt(0))
+	nISTET.writeCmd(cmd)
+	let count = value.getUint32(0, true);
+    document.getElementById("countP").innerHTML = "counts: "+count;
+    })
 .catch(error => { console.log(error) });
 });
 
@@ -183,13 +201,18 @@ var get_idx_array = new ArrayBuffer(4);
 var get_idx_view = new DataView(get_idx_array);
 var done = false;
 var blob;
+var filesize;
 
 function handleDataf(event) {
 	var value = event.target.value
 	var msg; 
+	if (event.target.value.byteLength==0) {
+		console.log("in handleDataf... no data in event");
+	}
     if (event.target.value.byteLength==4) {
 		get_idx = 0;
 		download(blob);
+  		nISTET.disconnect();
 		done = true;
 		return;
 	}
@@ -222,7 +245,20 @@ function handleDataf(event) {
 		console.log("rcvd_idx, get_idx" + rcvd_idx + "," + get_idx);
 		done = true;
 	}
+
 	console.log("total "+blob.length+" try to send get_idx " + get_idx);
+
+	document.getElementById("progressP").innerHTML = blob.length + "/ "+filesize;
+
+    if (blob.length == filesize) {
+		console.log("Got everything exactly. ")
+		get_idx = 0;
+		download(blob);
+  		nISTET.disconnect();
+		done = true;
+		return;
+	}
+    
 	get_idx_view.setUint32(0, get_idx, true);
 	nISTET.writeData(get_idx_array);
     // sleep(50);
@@ -237,16 +273,43 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function send_cmd(cmd) {
+return nISTET.request()
+.then(_ => nISTET.connect())
+.then(_ => { /* Start to try to xfer */
+	let value = Uint8Array.of(cmd.charCodeAt(0));
+	nISTET.writeCmd(value);
+    console.log("Trying to send "+cmd);
+	});
+}
+
+document.querySelector('#erase').addEventListener('click', event => {
+	send_cmd('C') .catch(error => { console.log(error) });
+});
+
+document.querySelector('#start').addEventListener('click', event => {
+	send_cmd('w') .catch(error => { console.log(error) });
+});
+
+document.querySelector('#stop').addEventListener('click', event => {
+	send_cmd('s') .catch(error => { console.log(error) });
+});
+
 document.querySelector('#fetch').addEventListener('click', event => {
 nISTET.request()
 .then(_ => nISTET.connect())
 .then(_ => nISTET.startDataNotifications(handleDataf) )
-.then(_ => sleep(1000))
 .then(_ => { /* Start to try to xfer */
 	let value = Uint8Array.of('f'.charCodeAt(0));
 	nISTET.writeCmd(value);
     console.log("Trying to send f");
 	})
+.then(_ => {  return nISTET.readCounts(); })
+.then(value => { 
+	let count = value.getUint32(0, true);
+    document.getElementById("countP").innerHTML = "counts: "+count;
+	filesize = count*32;
+    })
 /*
 .then(_ => sleep(250))
 .then(_ => console.log("try to read back") )
@@ -258,7 +321,7 @@ nISTET.request()
 	})
 // .then(_ => sleep(100))
 */
-.then(_ => sleep(250))
+// .then(_ => sleep(250))
 .then(_ =>{
 	console.log("try to send get_idx")
 	get_idx_view.setUint32(0, get_idx, true);
