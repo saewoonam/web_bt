@@ -78,7 +78,9 @@
         </div>
 
         <div>
-            <button id="info" disabled>check status</button>
+            <button id="info" disabled>check logging</button>
+            <button id="check" disabled>check memory</button>
+
         </div>
     </p>
     <p>
@@ -351,6 +353,7 @@
                 }
             })
             .then(_ => document.getElementById("info").click())
+            .then(_ => document.getElementById("check").click())
             /*
                     
             .then(_ => readCounts())
@@ -404,7 +407,10 @@
                 console.log(error)
             });
         // .then(() => this.delayPromise(1000))
-        console.log("Try to read counts now.")
+    });
+
+    document.querySelector('#check').addEventListener('click', event => {
+        console.log("check flash memory")
         readCounts()
             .then(value => {
                 let count = value.getUint32(0, true);
