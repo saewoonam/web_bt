@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+
+<html>
+<style>
+    /*button { 
+    color:#050; 
+    font-size: 1rem;
+    border-radius: 10px;
+     font: old 84% 'trebuchet ms',helvetica,sans-serif;  
+     background-color:#fed; 
+     border:1px solid;  
+     border-color: #696 #363 #363 #696;  
+}*/
+    button {
+        /*        display: inline-block;*/
+        border: none;
+        padding: 0.25rem 1rem;
+        margin: 0;
+        border-radius: 10px;
+        text-decoration: none;
+        background: #FF69ed;
+        color: #ffffff;
+        font-family: sans-serif;
+        font-size: 1rem;
+        /*        cursor: pointer;
+        text-align: center;
+        transition: background 250ms ease-in-out,
+            transform 150ms ease;
+        -webkit-appearance: none;
+        -moz-appearance: none;*/
+    }
+
+    button:disabled,
+    button[disabled] {
+        border: 1px solid #999999;
+        background-color: #cccccc;
+        color: #666666;
+    }
+
+    /*
+
+    button:hover:not([enabled="disabled"]),
+    button:focus {
+        background: #0053ba;
+    }
+    */
+    button:focus {
+        outline: 1px solid #fff;
+        outline-offset: 0px;
+    }
+
+
+    button:active {
+        transform: scale(0.8);
+    }
+
+</style>
+
+
+<body>
+
+    <h1>NIST Encounter tracing testing</h1>
+    <h2 id="name"> not connected </h2>
+    <div class="btns bt">
+        <button id="connect">connect</button>
+        <button id="disconnect" disabled>disconnect</button>
+    </div>
+    <p>
+        <div>
+            <progress id="counts" value=0></progress>
+        </div>
+        <div>
+            <button id="info" disabled>check status</button>
+        </div>
+    </p>
+    <p>
+        <div class="btn-group2">
+            <button id="start" disabled>start recording</button>
+            <button id="stop" disabled>stop recording</button>
+        </div>
+    </p>
+    <p>
+        <div class="btn-group2">
+            <button id="mark" disabled>mark encounter</button>
+            <button id="unmark" disabled>unmark encounter</button>
+        </div>
+    </p>
+    <hr>
+    <p>
+        <div>
+            <button id="fetch" disabled>fetch</button>
+        </div>
+    </p>
+    <p>
+        <div>
+            <button id="erase" disabled>erase flash</button>
+        </div>
+    </p>
+
+    <p>
+        <div>
+            <progress id="fileprogress" value=0></progress>
+        </div>
+
+    </p>
+    <div hidden>
+        <p id="countP">counts???</p>
+        <p hidden id="cmdP">cmd???</p>
+        <p id="writingP">logging???</p>
+        <p id="progressP"></p>
+    </div>
+
+    <p>
+        <div hidden class="btn-group1">
+            <button hidden id="counts">get counts</button>
+            <button hidden id="readCmd">readCmd</button>
+        </div>
+    </p>
+
+</body>
+<script>
+    var etDevice;
+    var service = "7b183224-9168-443e-a927-7aeea07e8105";
+
+    function onDisconnected() {
+        console.log('Device is disconnected.');
+    }
+
+    function requestDevice() {
+        console.log('Requesting any Bluetooth Device...');
+        let options = {
+            "filters": [{
+                "namePrefix": "NIST",
+                "services": [service]
+            }]
+        };
+        return navigator.bluetooth.requestDevice(options)
+            .then(device => {
+                etDevice = device;
+                etDevice.addEventListener('gattserverdisconnected', onDisconnected);
+            })
+            .then(_ => etDevice.gatt.connect());
+    }
+
+    function disconnect() {
+        if (!etDevice) {
+            return Promise.reject('Device is not connected.');
+        }
+        return etDevice.gatt.disconnect();
+    }
+
+    function readCounts() {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("292bd3d2-14ff-45ed-9343-55d125edb721"))
+            .then(characteristic => characteristic.readValue());
+    }
+
+    function readCmd() {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("56cd7757-5f47-4dcd-a787-07d648956068"))
+            .then(characteristic => characteristic.readValue());
+    }
+
+    function writeCmd(data) {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("56cd7757-5f47-4dcd-a787-07d648956068"))
+            .then(characteristic => characteristic.writeValue(data));
+    }
+
+    function readData() {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+            .then(characteristic => characteristic.readValue());
+    }
+
+    function writeData(data) {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+            .then(characteristic => characteristic.writeValue(data));
+    }
+
+    function startDataNotifications(listener) {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+            .then(characteristic => characteristic.startNotifications())
+            .then(characteristic => characteristic.addEventListener('characteristicvaluechanged', listener));
+    }
+
+    function stopDataNotifications(listener) {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+            .then(characteristic => characteristic.stopNotifications())
+            .then(characteristic => characteristic.removeEventListener('characteristicvaluechanged', listener));
+    }
+
+    function handleDataI(event) {
+        var value = event.target.value.getUint8();
+        var msg;
+        console.log('handleDataI received ' + value);
+        switch (value) {
+            case 0:
+                msg = 'Off';
+                document.querySelector("#start").disabled = false;
+                document.querySelector("#stop").disabled = true;
+                break;
+            case 1:
+                msg = 'On';
+                document.querySelector("#start").disabled = true;
+                document.querySelector("#stop").disabled = false;
+                break;
+            default:
+                msg = '??';
+        }
+        msg = "Logging to flash: " + msg;
+        console.log(msg)
+    }
+
+
+    function download(filecontent) {
+        // var fileContent = "My epic novel that I don't want to lose.";
+        var bb = new Blob([filecontent], {
+            type: 'application/octet-stream'
+        });
+        var a = document.createElement('a');
+        var d = new Date();
+        var n = d.toISOString();
+        n = n.split('.');
+        n = n[0];
+        console.log(typeof(n));
+        n = n.replace(/-/g, '');
+        n = n.replace('T', '_');
+        n = n.replace(/:/g, '');
+        n = n + '_GMT'
+        filename = 'raw_' + etDevice.name + '_' + n + '.bin'
+        console.log('filename:' + filename)
+        a.download = filename;
+        a.href = window.URL.createObjectURL(bb);
+        a.click();
+    }
+
+    var get_idx = 0;
+    var get_idx_array = new ArrayBuffer(4);
+    var get_idx_view = new DataView(get_idx_array);
+    var done = false;
+    var blob;
+    var filesize;
+
+    function concatTypedArrays(a, b) { // a, b TypedArray of same type
+        var c = new(a.constructor)(a.length + b.length);
+        c.set(a, 0);
+        c.set(b, a.length);
+        return c;
+    }
+
+    function handleDataf(event) {
+        var value = event.target.value
+        var msg;
+        if (event.target.value.byteLength == 0) {
+            console.log("in handleDataf... no data in event");
+        }
+        if (event.target.value.byteLength == 4) {
+            get_idx = 0;
+            download(blob);
+            stopDataNotifications(handleDataf);
+            // disconnect();
+
+            done = true;
+            return;
+        }
+        // Should check length first... need to fix this later
+        rcvd_idx = value.getUint32(0, true);
+        if (get_idx == 0) {
+            handleDataf.packet_size = value.buffer.byteLength;
+            console.log('packet size: ' + handleDataf.packet_size);
+        } else {
+            ;
+        }
+        // console.log("Rcvd_idx " + rcvd_idx);
+        // Check that rcvd_idx is correct... otherwise ask for it again
+        let packet_size = handleDataf.packet_size;
+        if (rcvd_idx == get_idx) {
+            // should check packet_size... Leave for later
+            if (rcvd_idx == 0) { // no concat if first packet
+                blob = new Uint8Array(value.buffer.byteLength - 4);
+                console.log("blob.length " + blob.length)
+                blob.set(value.buffer.slice(4, ), 4);
+                handleDataf.total = blob.length;
+            } else {
+                let oldblob = blob;
+                let buffer = new Uint8Array(value.buffer.slice(4, ));
+                blob = concatTypedArrays(oldblob, buffer);
+                handleDataf.total = blob.length;
+            }
+            get_idx = get_idx + 1;
+        } else {
+            console.log("rcvd_idx, get_idx" + rcvd_idx + "," + get_idx);
+            done = true;
+        }
+
+        // console.log("total " + blob.length + " try to send get_idx " + get_idx);
+        elt = document.getElementById("fileprogress");
+
+        elt.style.visibility = 'visible';
+        elt.value = blob.length / filesize;
+
+        if (blob.length == filesize) {
+            console.log("Got everything exactly. ")
+            get_idx = 0;
+            download(blob);
+            stopDataNotifications(handleDataf);
+
+            // disconnect();
+            done = true;
+            return;
+        }
+
+        get_idx_view.setUint32(0, get_idx, true);
+        writeData(get_idx_array);
+    }
+
+
+    document.querySelector('#connect').addEventListener('click', event => {
+        console.log("connect")
+        requestDevice()
+            .then(_ => {
+                console.log(etDevice);
+                document.querySelector("#name").innerHTML = "connected: " + etDevice.name;
+                var b = document.querySelectorAll("button")
+                for (button in b) {
+                    b[button].disabled = false;
+                }
+                document.querySelector('#info').click();
+            })
+            .catch(error => {
+                console.log(error)
+            });
+    });
+    document.querySelector('#disconnect').addEventListener('click', event => {
+        console.log("disconnect");
+        disconnect()
+        document.querySelector("#name").innerHTML = "not connected"
+        var b = document.querySelectorAll("button")
+        for (button in b) {
+            b[button].disabled = true;
+        }
+        document.querySelector("#connect").disabled = false;
+    });
+    document.querySelector('#info').addEventListener('click', event => {
+        console.log("info");
+        readCounts()
+            .then(value => {
+                startDataNotifications(handleDataI);
+                let cmd = Uint8Array.of('I'.charCodeAt(0))
+                writeCmd(cmd)
+                let count = value.getUint32(0, true);
+                console.log(count + ", " + (count / (1 << 15)));
+                document.getElementById("counts").value = count / (1 << 15);
+            })
+            .catch(error => {
+                console.log(error)
+            });
+
+    });
+    document.querySelector('#erase').addEventListener('click', event => {
+        writeCmd('C').catch(error => {
+            console.log(error)
+        });
+    });
+
+    document.querySelector('#start').addEventListener('click', event => {
+        writeCmd('w').catch(error => {
+            console.log(error)
+        });
+        document.querySelector('#start').disabled = true;
+        document.querySelector('#stop').disabled = false;
+    });
+
+    document.querySelector('#stop').addEventListener('click', event => {
+        writeCmd('s').catch(error => {
+            console.log(error)
+        });
+        document.querySelector('#start').disabled = false;
+        document.querySelector('#stop').disabled = true;
+    });
+    document.querySelector('#mark').addEventListener('click', event => {
+        writeCmd('M').catch(error => {
+            console.log(error)
+        });
+    });
+
+    document.querySelector('#stop').addEventListener('click', event => {
+        writeCmd('U').catch(error => {
+            console.log(error)
+        });
+    });
+
+    document.querySelector('#fetch').addEventListener('click', event => {
+        stopDataNotifications(handleDataI)
+            .then(_ => startDataNotifications(handleDataf))
+
+            .then(_ => {
+                /* Start to try to xfer */
+                let value = Uint8Array.of('f'.charCodeAt(0));
+                writeCmd(value);
+                console.log("Trying to send f");
+            })
+            .then(_ => {
+                return readCounts();
+            })
+            .then(value => {
+                let count = value.getUint32(0, true);
+                document.getElementById("counts").value = count / (1 << 15);
+                filesize = count * 32;
+            })
+            .then(_ => {
+                console.log("try to send get_idx")
+                get_idx_view.setUint32(0, get_idx, true);
+                writeData(get_idx_array);
+            })
+            .catch(error => {
+                console.log(error)
+            });
+
+    });
+
+</script>
+
+</html>
