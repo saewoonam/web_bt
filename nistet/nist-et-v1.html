@@ -133,6 +133,12 @@
         elt = document.getElementById("fetch").hidden = true;
     }
 
+    function delayPromise(delay) {
+        return new Promise(resolve => {
+            setTimeout(resolve, delay);
+        });
+    }
+
     function onDisconnected() {
         console.log('Device is disconnected.');
     }
@@ -394,6 +400,7 @@
                 console.log(count + ", " + (count / (1 << 15)));
                 document.getElementById("counts").value = count / (1 << 15);
             })
+            .then(() => this.delayPromise(10))
             .catch(error => {
                 console.log(error)
             });
