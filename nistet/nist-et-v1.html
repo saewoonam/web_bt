@@ -133,12 +133,6 @@
         elt = document.getElementById("fetch").hidden = true;
     }
 
-    function delayPromise(delay) {
-        return new Promise(resolve => {
-            setTimeout(resolve, delay);
-        });
-    }
-
     function onDisconnected() {
         console.log('Device is disconnected.');
     }
@@ -389,18 +383,27 @@
     function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
+
+    function delayPromise(delay) {
+        return new Promise(resolve => {
+            setTimeout(resolve, delay);
+        });
+    }
+
+
     document.querySelector('#info').addEventListener('click', event => {
         console.log("info");
-        readCounts()
+        startDataNotifications(handleDataI)
+            .then(() => readCounts())
+            .then(() => this.delayPromise(1000))
             .then(value => {
-                startDataNotifications(handleDataI);
                 let cmd = Uint8Array.of('I'.charCodeAt(0))
                 writeCmd(cmd)
                 let count = value.getUint32(0, true);
                 console.log(count + ", " + (count / (1 << 15)));
                 document.getElementById("counts").value = count / (1 << 15);
             })
-            .then(() => this.delayPromise(10))
+            .then(() => this.delayPromise(1000))
             .catch(error => {
                 console.log(error)
             });
