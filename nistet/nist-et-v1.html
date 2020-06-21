@@ -135,12 +135,14 @@
 <script>
     var etDevice;
     var service = "7b183224-9168-443e-a927-7aeea07e8105";
+    var mobile = false;
     console.log(document.getElementById("fileprogress"));
     console.log(document.getElementById("fileprogress").style.visibility);
     console.log(document.getElementById("fileprogress").hidden);
     if (/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
         // can't get notify working right on android right now
-        elt = document.getElementById("fetch").hidden = true;
+        // elt = document.getElementById("fetch").hidden = true;
+        mobile = true;
     }
 
     function onDisconnected() {
