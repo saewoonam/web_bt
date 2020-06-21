@@ -350,6 +350,9 @@
                     b[button].disabled = false;
                 }
             })
+            .then(_ => document.getElementById("info").click())
+            /*
+                    
             .then(_ => readCounts())
             .then(value => {
                 // startDataNotifications(handleDataI);
@@ -360,6 +363,7 @@
                 document.getElementById("counts").value = count / (1 << 15);
                 // sleep(1000);
             })
+            */
             .catch(error => {
                 console.log(error)
             });
