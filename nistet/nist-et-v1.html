@@ -336,20 +336,30 @@
 
 
     document.querySelector('#connect').addEventListener('click', event => {
-        console.log("connect")
-        requestDevice()
-            .then(_ => {
-                console.log(etDevice);
-                document.querySelector("#name").innerHTML = "connected: " + etDevice.name;
-                var b = document.querySelectorAll("button")
-                for (button in b) {
-                    b[button].disabled = false;
-                }
-                document.querySelector('#info').click();
-            })
-            .catch(error => {
-                console.log(error)
-            });
+            console.log("connect")
+            requestDevice()
+                .then(_ => {
+                    console.log(etDevice);
+                    document.querySelector("#name").innerHTML = "connected: " + etDevice.name;
+                    var b = document.querySelectorAll("button")
+                    for (button in b) {
+                        b[button].disabled = false;
+                    }
+                })
+                .then(_ => readCounts())
+                .then(value => {
+                    startDataNotifications(handleDataI);
+                    let cmd = Uint8Array.of('I'.charCodeAt(0))
+                    writeCmd(cmd)
+                    let count = value.getUint32(0, true);
+                    console.log(count + ", " + (count / (1 << 15)));
+                    document.getElementById("counts").value = count / (1 << 15);
+                })
+
+        })
+        .catch(error => {
+            console.log(error)
+        });
     });
     document.querySelector('#disconnect').addEventListener('click', event => {
         console.log("disconnect");
@@ -364,6 +374,10 @@
         }
         document.querySelector("#connect").disabled = false;
     });
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
     document.querySelector('#info').addEventListener('click', event => {
         console.log("info");
         readCounts()
@@ -380,14 +394,17 @@
             });
 
     });
+
     document.querySelector('#erase').addEventListener('click', event => {
-        writeCmd('C').catch(error => {
+        let cmd = Uint8Array.of('C'.charCodeAt(0))
+        writeCmd(cmd).catch(error => {
             console.log(error)
         });
     });
 
     document.querySelector('#start').addEventListener('click', event => {
-        writeCmd('w').catch(error => {
+        let cmd = Uint8Array.of('w'.charCodeAt(0))
+        writeCmd(cmd).catch(error => {
             console.log(error)
         });
         document.querySelector('#start').disabled = true;
@@ -395,20 +412,23 @@
     });
 
     document.querySelector('#stop').addEventListener('click', event => {
-        writeCmd('s').catch(error => {
+        let cmd = Uint8Array.of('s'.charCodeAt(0))
+        writeCmd(cmd).catch(error => {
             console.log(error)
         });
         document.querySelector('#start').disabled = false;
         document.querySelector('#stop').disabled = true;
     });
     document.querySelector('#mark').addEventListener('click', event => {
-        writeCmd('M').catch(error => {
+        let cmd = Uint8Array.of('M'.charCodeAt(0))
+        writeCmd(cmd).catch(error => {
             console.log(error)
         });
     });
 
     document.querySelector('#stop').addEventListener('click', event => {
-        writeCmd('U').catch(error => {
+        let cmd = Uint8Array.of('U'.charCodeAt(0))
+        writeCmd(cmd).catch(error => {
             console.log(error)
         });
     });
