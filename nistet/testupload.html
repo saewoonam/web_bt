@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<style>
+    #grid {
+        height: 300px;
+    }
+
+    #grid canvas,
+    #grid canvas-datagrid {
+        --cdg-height: 300px;
+    }
+
+</style>
+
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/es5-shim/4.5.14/es5-shim.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.2/xlsx.min.js"></script>
+    <script src="https://unpkg.com/canvas-datagrid"></script>
+    <input type='file' id='input'>
+    <progress value="0" max="100" id="progress-bar"></progress>
+    <div id="status"></div>
+    <div>
+        <div id="grid"></div>
+    </div>
+    <script>
+        console.log("hello")
+        /*
+        https://stackoverflow.com/questions/21553528/how-to-test-for-equality-in-arraybuffer-dataview-and-typedarray
+        */
+        function equal32(a, b) {
+            const ua = new Uint32Array(a.buffer, a.byteOffset, a.byteLength / 4);
+            const ub = new Uint32Array(b.buffer, b.byteOffset, b.byteLength / 4);
+            return compare(ua, ub);
+        }
+
+        function compare(a, b) {
+            for (let i = a.length; - 1 < i; i -= 1) {
+                if ((a[i] !== b[i])) return false;
+            }
+            return true;
+        }
+        document.getElementById('input').addEventListener('change', (e) => {
+            const file = document.getElementById('input').files[0];
+            if (file) {
+                processFile(file);
+            }
+        })
+
+        var data;
+
+        function buf2hex(buffer) { // buffer is an ArrayBuffer
+            // https://stackoverflow.com/questions/40031688/javascript-arraybuffer-to-hex
+            return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join('');
+        }
+
+        function parse_binary(raw, file) {
+            let counts = raw.byteLength / 32;
+            console.log('counts: ' + counts);
+            let b = new Uint32Array(8);
+            for (index = 0; index < 8; index++) {
+                b[index] = 0;
+            }
+            var last_mark = 0;
+            for (index = 0; index < counts; index++) {
+                let a = new Uint32Array(raw.slice(index * 32, (index + 1) * 32));
+
+                if (compare(a, b)) {
+                    console.log('marker match: ' + index)
+                    last_mark = index;
+                }
+            }
+            let last_start = last_mark + 2;
+            var first, last, epoch_minute, id, flag, flag2;
+            var mean37, n37, min37, max37, std237;
+            var mean38, n38, min38, max38, std238;
+            var mean39, n39, min39, max39, std239;
+            console.log('last_start: ' + last_start);
+            // Should check that last_mark is < counts
+            var matrix = [
+                ['time', 'epoch_minute', 'first', 'last',
+                    'mean37', 'n37', 'min37', 'max37', 'var37',
+                    'mean38', 'n38', 'min38', 'max38', 'var38',
+                    'mean39', 'n39', 'min39', 'max39', 'var39',
+                    'flag', 'flag2', 'encounter_id'
+                ]
+            ];
+            for (index = last_start; index < counts; index += 2) {
+                let row = new DataView(raw.slice(index * 32, (index + 2) * 32));
+                // console.log(row)
+                first = row.getUint8(6);
+                last = row.getUint8(7);
+                epoch_minute = row.getUint32(8, true);
+                d = new Date(epoch_minute * 60 * 1000);
+                console.log(d);
+                date_string = d.toISOString();
+                date_string = date_string.split('.');
+                date_string = date_string[0];
+                id = row.buffer.slice(12, 12 + 32);
+                // console.log(id)
+                id = buf2hex(id);
+                // console.log(id)
+
+                var offset = 44;
+                mean37 = row.getUint8(offset);
+                n37 = row.getUint8(offset + 1);
+                min37 = row.getUint8(offset + 2);
+                max37 = row.getUint8(offset + 3);
+                std237 = row.getUint16(offset + 4);
+                var offset = 50;
+                mean38 = row.getUint8(offset);
+                n38 = row.getUint8(offset + 1);
+                min38 = row.getUint8(offset + 2);
+                max38 = row.getUint8(offset + 3);
+                std238 = row.getUint16(offset + 4);
+                var offset = 56;
+                mean39 = row.getUint8(offset);
+                n39 = row.getUint8(offset + 1);
+                min39 = row.getUint8(offset + 2);
+                max39 = row.getUint8(offset + 3);
+                std239 = row.getUint16(offset + 4);
+                flag = row.getUint8(62);
+                flag2 = row.getUint8(63);
+
+                array_row = [date_string, epoch_minute, first, last,
+                    mean37, n37, min37, max37, std237,
+                    mean38, n38, min38, max38, std238,
+                    mean39, n39, min39, max39, std239,
+                    flag, flag2, id
+                ]
+
+                // array_row = [flag, flag2]
+                matrix.push(array_row);
+                console.log(index + ":" + flag);
+            }
+            console.log(matrix);
+            var filename = "write.xlsb";
+
+            var data = [
+                [1, 2, 3],
+                [true, false, null, "sheetjs"],
+                ["foo", "bar", new Date("2014-02-19T14:30Z"), "0.3"],
+                ["baz", null, "qux"]
+            ]
+            console.log(data);
+            var ws_name = "SheetJS";
+
+            var wb = XLSX.utils.book_new(),
+                ws = XLSX.utils.aoa_to_sheet(matrix);
+
+            /* add worksheet to workbook */
+            XLSX.utils.book_append_sheet(wb, ws, ws_name);
+
+            /* write workbook */
+            XLSX.writeFile(wb, file.name + '.csv');
+            /*
+            var grid = canvasDatagrid();
+            document.body.appendChild(grid);
+            grid.data = matrix;*/
+
+
+            var parentNode = document.getElementById('grid');
+            var grid = canvasDatagrid({
+                parentNode: parentNode,
+                data: matrix
+            });
+
+        }
+
+        const processFile = (file) => {
+            // we define fr as a new instance of FileReader
+            const fr = new FileReader();
+
+            fr.readAsArrayBuffer(file);
+            // Handle progress, success, and errors
+            // fr.onprogress = updateProgress;
+            fr.onerror = errorHandler;
+            fr.onabort = () => changeStatus('Start Loading');
+            fr.onloadstart = () => changeStatus('Start Loading');
+            fr.onload = function(event) {
+                changeStatus('Loaded');
+                console.log('onload event: ' + event);
+                data = event.target.result
+                console.log('result: ' + data);
+                console.log(data)
+                console.log('typeof(data): ' + typeof(data));
+                parse_binary(data, file);
+            };
+            fr.onloadend = () => loaded;
+            // Here you can perform some operations on the data asynchronously
+            fr.onprogress = setProgress;
+        }
+
+        // Updates the value of the progress bar
+        const setProgress = (e) => {
+            // The target is the file reader
+            const fr = e.target;
+            const loadingPercentage = 100 * e.loaded / e.total;
+            document.getElementById('progress-bar').value = loadingPercentage;
+        }
+
+        const changeStatus = (status) => {
+            document.getElementById('status').innerHTML = status
+        }
+
+        const loaded = (e) => {
+            changeStatus('Load ended!');
+            const fr = e.target
+            var result = fr.result;
+            console.log('result:')
+            console.log(result)
+            // Here we can send the result to a server for example
+        }
+
+        const errorHandler = (e) => {
+            changeStatus("Error: " + e.target.error.name)
+        }
+
+    </script>
+</body>
+
+</html>
