@@ -143,7 +143,7 @@
     console.log(document.getElementById("fileprogress").hidden);
     if (/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
         // can't get notify working right on android right now
-        elt = document.getElementById("fetch").hidden = true;
+        //  elt = document.getElementById("fetch").hidden = true;
         mobile = true;
     }
 
@@ -494,7 +494,6 @@
         document.querySelector('#stop').disabled = true;
         document.getElementById("info").click();
         document.getElementById("check").click();
-
     });
     document.querySelector('#mark').addEventListener('click', event => {
         let cmd = Uint8Array.of('M'.charCodeAt(0))
