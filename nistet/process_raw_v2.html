@@ -48,7 +48,7 @@
             <div class="bubbleplot" data-num="0">
                 <div class="plot" id="plotdiv"></div>
                 <div class="control-row">
-                    encounter id: <select class="encounter_selector">
+                    encounter id: <select class="encounter_selector" disabled>
                     </select>
                 </div>
             </div>
@@ -308,6 +308,8 @@
                 }
                 data[unique[idx]] = d;
             }
+            delete data['01'.repeat(32)];
+            delete data['02'.repeat(32)];
             /*  I don't know why this doesn't work...
             function setBubblePlot(chosenEncounter) {
                 let pdiv = document.querySelector('#myDiv');
@@ -344,36 +346,109 @@
                     }
 
                 }
+                update = {
+                    title: chosenEncounter.substring(0, 8) + "..."
+                };
                 Plotly.redraw('myDiv');
+                Plotly.relayout('myDiv', update);
             }
 
-
             function firstPlot() {
-                var data = {};
-                for (idx in unique) {
-                    var interesting = raw.filter(function(value) {
-                        return value[2] == unique[idx];
-                    });
-                    d = {
-                        type: 'scatter',
-                        mode: 'markers',
-                        name: unique[idx].substring(0, 6),
-                        x: interesting.map(function(value, index) {
-                            return value[0];
-                        }),
-                        y: interesting.map(function(value, index) {
-                            return -value[1];
-                        })
-                    }
-                    data[unique[idx]] = d;
-                }
+                // get all the traces
                 var d = Object.values(data);
+                var mark = raw.filter(function(value) {
+                    return value[2] == '01'.repeat(32);
+                });
+                console.log(mark);
+                mark_x = mark.map(function(value, index) {
+                    return value[0];
+                });
+                var mark_lines = [];
+                for (i in mark_x) {
+                    line = {
+                        type: 'line',
+                        // x-reference is assigned to the x-values
+                        xref: 'x',
+                        // y-reference is assigned to the plot paper [0,1]
+                        yref: 'paper',
+                        x0: mark_x[i],
+                        y0: 0,
+                        x1: mark_x[i],
+                        y1: 1,
+                        line: {
+                            color: 'rgb(55, 128, 191)',
+                            width: 1,
+                            dash: "10px,20px,10px"
+                        }
+                    };
+                    mark_lines.push(line);
+                    // console.log(line);
+                }
+                unmark = raw.filter(function(value) {
+                    return value[2] == '02'.repeat(32);
+                });
+                console.log(unmark);
+                unmark_x = unmark.map(function(value, index) {
+                    return value[0];
+                });
+                for (i in unmark_x) {
+                    line = {
+                        type: 'line',
+                        // x-reference is assigned to the x-values
+                        xref: 'x',
+                        // y-reference is assigned to the plot paper [0,1]
+                        yref: 'paper',
+                        x0: unmark_x[i],
+                        y0: 0,
+                        x1: unmark_x[i],
+                        y1: 1,
+                        line: {
+                            color: 'rgb(50, 171, 96)',
+                            width: 1,
+                            dash: '20px,20px,10px'
+                        }
+                    };
+                    mark_lines.push(line);
+                    // console.log(line);
+                }
+                // console.log(mark_lines);
+                let rect = [
+                    // 1st highlight during Feb 4 - Feb 6
+                    {
+                        type: 'rect',
+                        // x-reference is assigned to the x-values
+                        xref: 'x',
+                        // y-reference is assigned to the plot paper [0,1]
+                        yref: 'paper',
+                        x0: '2015-02-04',
+                        y0: 0,
+                        x1: '2015-02-06',
+                        y1: 1,
+                        fillcolor: '#d3d3d3',
+                        opacity: 0.2,
+                        line: {
+                            width: 0
+                        }
+                    }
+                ];
                 var layout = {
-                    title: 'all'
+                    title: 'all',
+                    margin: {
+                        l: 40,
+                        r: 100,
+                        b: 50,
+                        t: 30,
+                        pad: 10
+                    },
+                    shapes: mark_lines
                 };
 
-                console.log(d);
-                Plotly.newPlot('myDiv', d, layout);
+                // console.log(d);
+                Plotly.newPlot('myDiv', d, layout, {
+                    displayModeBar: true
+                }, {
+                    responsive: true
+                });
                 /*
                 this.p = p
                 this.pdiv = document.querySelector('#myDiv');
@@ -381,6 +456,7 @@
             };
 
             var encounterSelector = document.querySelector('.encounter_selector');
+            encounterSelector.disabled = false;
 
             function assignOptions(textArray, selector) {
                 // add 'all' option first
@@ -423,7 +499,6 @@
             // console.log(b);
 
             data = [];
-
             for (idx in unique) {
                 var interesting = raw.filter(function(value) {
                     return value[2] == unique[idx];
