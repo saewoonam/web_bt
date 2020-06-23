@@ -325,9 +325,11 @@
         if (rcvd_idx == get_idx) {
             // should check packet_size... Leave for later
             if (rcvd_idx == 0) { // no concat if first packet
-                blob = new Uint8Array(value.buffer.byteLength - 4);
+                blob = new Uint8Array(value.buffer.slice(4, ));
                 console.log("blob.length " + blob.length)
-                blob.set(value.buffer.slice(4, ), 4);
+				// blob.set(value.buffer.slice(4, ), 4);
+				console.log(value.buffer.slice(4,));
+				console.log(blob);
                 handleDataf.total = blob.length;
             } else {
                 let oldblob = blob;
@@ -497,21 +499,20 @@
     document.querySelector('#fetch').addEventListener('click', event => {
         stopDataNotifications(handleDataI)
             .then(_ => startDataNotifications(handleDataf))
-
             .then(_ => {
-                fileprogress_state('visible');
-                /* Start to try to xfer */
-                let value = Uint8Array.of('f'.charCodeAt(0));
-                writeCmd(value);
-                console.log("Trying to send f");
-            })
-            .then(_ => {
-                // return readCounts();
+                return readCounts();
             })
             .then(value => {
 				let count = value.getUint32(0, true);
 				update_memory_indicator(count);
                 filesize = count * 32;
+			})
+			.then(_ => {
+                fileprogress_state('visible');
+                /* Start to try to xfer */
+                let value = Uint8Array.of('f'.charCodeAt(0));
+                writeCmd(value);
+                console.log("Trying to send f");
             })
             .then(_ => {
                 console.log("try to send get_idx")

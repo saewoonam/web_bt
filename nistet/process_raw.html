@@ -122,7 +122,7 @@
                 first = row.getUint8(6);
                 last = row.getUint8(7);
                 epoch_minute = row.getUint32(8, true);
-                d = new Date(epoch_minute * 60 * 1000);
+                d = new Date(epoch_minute * 60 * 1000 - 3600*6*1000);
                 // console.log(d);
                 date_string = d.toISOString();
                 date_string = date_string.split('.');
@@ -137,19 +137,19 @@
                 n37 = row.getUint8(offset + 1);
                 min37 = row.getUint8(offset + 2);
                 max37 = row.getUint8(offset + 3);
-                std237 = row.getUint16(offset + 4);
+                std237 = row.getUint16(offset + 4, true);
                 var offset = 50;
                 mean38 = row.getUint8(offset);
                 n38 = row.getUint8(offset + 1);
                 min38 = row.getUint8(offset + 2);
                 max38 = row.getUint8(offset + 3);
-                std238 = row.getUint16(offset + 4);
+                std238 = row.getUint16(offset + 4, true);
                 var offset = 56;
                 mean39 = row.getUint8(offset);
                 n39 = row.getUint8(offset + 1);
                 min39 = row.getUint8(offset + 2);
                 max39 = row.getUint8(offset + 3);
-                std239 = row.getUint16(offset + 4);
+                std239 = row.getUint16(offset + 4, true);
                 flag = row.getUint8(62);
                 flag2 = row.getUint8(63);
 
@@ -158,18 +158,24 @@
                     mean38, n38, min38, max38, std238,
                     mean39, n39, min39, max39, std239,
                     flag, flag2, id
-                ]
-                rssi = Math.min(...[mean37, mean38, mean39]);
+				]
+				means = [];
+				if (n37) means.push(mean37);
+				if (n38) means.push(mean38);
+				if (n39) means.push(mean39);
+				if (means.length == 0) rssi = 0;
+				else rssi = Math.min(...means);
                 simple_row = [date_string, rssi, id];
                 // array_row = [flag, flag2]
                 // Add checks before we add to file
                 // 1.. Valid crypto flag==7
                 // 2.. Duration is greater than >30 seconds
                 // 
-                if ((flag == 7) && (last - first > 30)) {
+                if (flag == 7) {
                     matrix.push(array_row);
                     simple_m.push(simple_row);
                 } else {
+					console.log('index: '+index);
                     console.log(array_row);
                 }
                 // console.log(index + ":" + flag);
