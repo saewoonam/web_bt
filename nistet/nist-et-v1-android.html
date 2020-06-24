@@ -514,13 +514,15 @@
         //.then(_ => startDataNotifications(handleDataf))
         startDataNotifications(handleDataf)
             .then(_ => {
-                return 95; // readCounts();
+                filesize = 303 * 32; // readCounts();
             })
+            /*
             .then(value => {
                 let count = value.getUint32(0, true);
                 update_memory_indicator(count);
                 filesize = count * 32;
             })
+            */
             .then(_ => {
                 fileprogress_state('visible');
                 /* Start to try to xfer */
