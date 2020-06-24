@@ -510,8 +510,9 @@
     });
 
     document.querySelector('#fetch').addEventListener('click', event => {
-        stopDataNotifications(handleDataI)
-            .then(_ => startDataNotifications(handleDataf))
+        // stopDataNotifications(handleDataI)
+        //.then(_ => startDataNotifications(handleDataf))
+        startDataNotifications(handleDataf)
             .then(_ => {
                 return 95; // readCounts();
             })
