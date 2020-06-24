@@ -513,7 +513,7 @@
         stopDataNotifications(handleDataI)
             .then(_ => startDataNotifications(handleDataf))
             .then(_ => {
-                return readCounts();
+                return 95; // readCounts();
             })
             .then(value => {
                 let count = value.getUint32(0, true);
