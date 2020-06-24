@@ -204,7 +204,18 @@
                 std239 = row.getUint16(offset + 4, true);
                 flag = row.getUint8(62);
                 flag2 = row.getUint8(63);
-
+                if (id == '01'.repeat(32)) {
+                    date_string = date_string.split(':').slice(0, -1).join(':')
+                    date_string = date_string + ":" + ("00" + first).slice(-2)
+                    console.log(date_string);
+                    console.log(first + ", " + last);
+                    console.log(id)
+                }
+                if (id == '02'.repeat(32)) {
+                    date_string = date_string.split(':').slice(0, -1).join(':')
+                    date_string = date_string + ":" + ("00" + first).slice(-2)
+                    console.log(id)
+                }
                 array_row = [date_string, epoch_minute, first, last,
                     mean37, n37, min37, max37, std237,
                     mean38, n38, min38, max38, std238,
@@ -217,6 +228,7 @@
                 if (n39) means.push(mean39);
                 if (means.length == 0) rssi = 0;
                 else rssi = Math.min(...means);
+
                 simple_row = [date_string, rssi, id];
                 // array_row = [flag, flag2]
                 // Add checks before we add to file
@@ -353,6 +365,26 @@
                 Plotly.relayout('myDiv', update);
             }
 
+            function build_region(start, stop) {
+                return {
+                    type: 'rect',
+                    // x-reference is assigned to the x-values
+                    xref: 'x',
+                    // y-reference is assigned to the plot paper [0,1]
+                    yref: 'paper',
+                    x0: start,
+                    y0: 0,
+                    x1: stop,
+                    y1: 1,
+                    fillcolor: 'lightsalmon',
+                    opacity: 0.2,
+                    line: {
+                        width: 0
+                    }
+
+                };
+            }
+
             function firstPlot() {
                 // get all the traces
                 var d = Object.values(data);
@@ -412,25 +444,19 @@
                     // console.log(line);
                 }
                 // console.log(mark_lines);
-                let rect = [
-                    // 1st highlight during Feb 4 - Feb 6
-                    {
-                        type: 'rect',
-                        // x-reference is assigned to the x-values
-                        xref: 'x',
-                        // y-reference is assigned to the plot paper [0,1]
-                        yref: 'paper',
-                        x0: '2015-02-04',
-                        y0: 0,
-                        x1: '2015-02-06',
-                        y1: 1,
-                        fillcolor: '#d3d3d3',
-                        opacity: 0.2,
-                        line: {
-                            width: 0
-                        }
+                for (i in unmark_x) {
+                    var interesting = mark_x.filter(function(value) {
+                        return value < unmark_x[i];
+                    });
+                    if (interesting.length > 0) {
+                        console.log(interesting.slice(-1)[0]);
+                        console.log(unmark_x[i]);
+                        rect = build_region(interesting.slice(-1)[0], unmark_x[i]);
+                        mark_lines.push(rect);
+                        console.log(rect);
                     }
-                ];
+                }
+
                 var layout = {
                     title: 'all',
                     margin: {
