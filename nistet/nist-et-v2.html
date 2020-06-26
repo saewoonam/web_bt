@@ -407,7 +407,6 @@
         requestDevice()
             .then(_ => {
                 console.log(etDevice);
-                document.querySelector("#name").innerHTML = "connected: " + etDevice.name;
             })
             .then(_ => update_status("getting status ..."))
             .then(value => {
@@ -421,6 +420,7 @@
                     b[button].disabled = false;
                 }
             })
+            .then(_ => document.querySelector("#name").innerHTML = "connected: " + etDevice.name)
             .catch(error => {
                 console.log(error)
             });
