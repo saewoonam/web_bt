@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta name="viewport" content="width = device-width">
+
+<style>
+    /*button { 
+    color:#050; 
+    font-size: 1rem;
+    border-radius: 10px;
+     font: old 84% 'trebuchet ms',helvetica,sans-serif;  
+     background-color:#fed; 
+     border:1px solid;  
+     border-color: #696 #363 #363 #696;  
+}*/
+    button {
+        /*        display: inline-block;*/
+        border: none;
+        padding: 0.25rem 1rem;
+        margin: 0;
+        border-radius: 10px;
+        text-decoration: none;
+        background: #800080;
+        color: #ffffff;
+        font-family: sans-serif;
+        font-size: 1.2rem;
+        /*        cursor: pointer;
+        text-align: center;
+        transition: background 250ms ease-in-out,
+            transform 150ms ease;
+        -webkit-appearance: none;
+        -moz-appearance: none;*/
+    }
+
+    #start[state='on'] {
+        background: #FF0000;
+    }
+
+    #mark[state='on'] {
+        background: #008080;
+    }
+
+    #mark[state='off'] {
+        background: #800080;
+    }
+
+    #mark[disabled] {
+        border: 1px solid #999999;
+        background-color: #cccccc;
+        color: #666666;
+    }
+
+    #start[disabled] {
+        border: 1px solid #999999;
+        background-color: #cccccc;
+        color: #666666;
+    }
+
+    button:disabled,
+    button[disabled] {
+        border: 1px solid #999999;
+        background-color: #cccccc;
+        color: #666666;
+    }
+
+    /*
+
+    button:hover:not([enabled="disabled"]),
+    button:focus {
+        background: #0053ba;
+    }
+    */
+    button:focus {
+        outline: 1px solid #fff;
+        outline-offset: 0px;
+    }
+
+
+    button:active {
+        transform: scale(0.8);
+    }
+
+    .status {
+        background-color: white;
+        padding-left: 10px;
+        padding-right: 10px;
+        font-size: 1.2em
+    }
+
+    html {
+        background:
+            url('https://github.com/saewoonam/web_bt/blob/master/nistet/rings_v2b.png?raw=true') no-repeat center fixed;
+        background-size: cover;
+
+
+    }
+
+</style>
+
+
+<body>
+
+    <h1>NIST Encounter tracing testing</h1>
+    <h2 id="name"> not connected </h2>
+    <div class="btns bt">
+        <button id="connect">connect</button>&nbsp;&nbsp;
+        <button id="disconnect" disabled>disconnect</button>
+    </div>
+
+    <p>
+        <span id="recording" class="status">Recording Encounters: </span>
+    </p>
+
+    <p>
+        <span id="proximity" class="status">Proximity: </span>
+    </p>
+    <p>
+        <div hidden>
+            <label> memory use</label>
+            <progress id="counts" value=0></progress>
+            <label id="counts_text"> ?? /32768</label>
+        </div>
+
+        <div>
+            <button id="info" disabled>refresh</button>
+            <button id="check" disabled>check memory</button>
+
+        </div>
+    </p>
+    <p>
+        <div class="btn-group2">
+            <button id="start" class='tricky' disabled>start recording</button>
+            <button id="stop" disabled hidden>stop recording</button>
+        </div>
+    </p>
+    <div style="line-height:0%;">
+        <br>
+    </div>
+    <p>
+        <div class="btn-group2">
+            <button id="mark" class='tricky' disabled>Press when near someone</button>&nbsp;&nbsp;&nbsp;
+        </div>
+    </p>
+    <div style="line-height:0%;">
+        <br>
+    </div>
+    <p>
+        <div>
+            <label id="fileprogress_label" style="visibility:hidden;"> file progress</label>
+            <progress id="fileprogress" style="visibility:hidden;" value=0></progress>
+        </div>
+        <div>
+            <button id="fetch" disabled>fetch</button>
+        </div>
+    </p>
+    <p>
+        <div>
+            <button id="erase" disabled>erase flash</button>
+        </div>
+    </p>
+
+    <p>
+        <h3 id="status">status:</h3>
+    </p>
+    <div hidden>
+        <p id="countP">counts???</p>
+        <p hidden id="cmdP">cmd???</p>
+        <p id="writingP">logging???</p>
+        <p id="progressP"></p>
+    </div>
+
+    <p>
+        <div hidden class="btn-group1">
+            <button hidden id="counts">get counts</button>
+            <button hidden id="readCmd">readCmd</button>
+        </div>
+    </p>
+
+</body>
+<script>
+    var etDevice;
+    var service = "7b183224-9168-443e-a927-7aeea07e8105";
+    var mobile = false;
+    console.log(document.getElementById("fileprogress"));
+    console.log(document.getElementById("fileprogress").style.visibility);
+    console.log(document.getElementById("fileprogress").hidden);
+    if (/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        // can't get notify working right on android right now
+        elt = document.getElementById("fetch").hidden = true;
+        mobile = true;
+    }
+
+    function update_status(text) {
+        document.getElementById("status").innerHTML = 'status: ' + text;
+        if (text.length > 0) {
+            setTimeout(update_status, 3000, '');
+        }
+    }
+
+    function onDisconnected() {
+        console.log('Device is disconnected.');
+    }
+
+    function requestDevice() {
+        console.log('Requesting any Bluetooth Device...');
+        update_status('Requesting any Bluetooth Device...');
+        let options = {
+            "filters": [{
+                "namePrefix": "NIST",
+                "services": [service]
+            }]
+        };
+        return navigator.bluetooth.requestDevice(options)
+            .then(device => {
+                etDevice = device;
+                etDevice.addEventListener('gattserverdisconnected', onDisconnected);
+            })
+            .then(_ => etDevice.gatt.connect());
+    }
+
+    function disconnect() {
+        if (!etDevice) {
+            return Promise.reject('Device is not connected.');
+        }
+        return etDevice.gatt.disconnect();
+    }
+
+    function readCounts() {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("292bd3d2-14ff-45ed-9343-55d125edb721"))
+            .then(characteristic => characteristic.readValue());
+    }
+
+    function readCmd() {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("56cd7757-5f47-4dcd-a787-07d648956068"))
+            .then(characteristic => characteristic.readValue());
+    }
+
+    function writeCmd(data) {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("56cd7757-5f47-4dcd-a787-07d648956068"))
+            .then(characteristic => characteristic.writeValue(data));
+    }
+
+    function readData() {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+            .then(characteristic => characteristic.readValue());
+    }
+
+    function writeData(data) {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+            .then(characteristic => characteristic.writeValue(data));
+    }
+
+    function startDataNotifications(listener) {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+            .then(characteristic => characteristic.startNotifications())
+            .then(characteristic => characteristic.addEventListener('characteristicvaluechanged', listener));
+    }
+
+    function stopDataNotifications(listener) {
+        return etDevice.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+            .then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+            .then(characteristic => characteristic.stopNotifications())
+            .then(characteristic => characteristic.removeEventListener('characteristicvaluechanged', listener));
+    }
+
+    function handleDataI(event) {
+        var value = event.target.value.getUint8();
+        var msg;
+        console.log('handleDataI received ' + value);
+        switch (value) {
+            case 0:
+                msg = 'Off';
+                break;
+            case 1:
+                msg = 'On';
+                break;
+            default:
+                msg = '??';
+        }
+        update_recording_status_elts(value);
+        msg = "Logging to flash: " + msg;
+        console.log(msg)
+        stopDataNotifications(handleDataI);
+
+    }
+
+
+    function download(filecontent) {
+        // var fileContent = "My epic novel that I don't want to lose.";
+        var bb = new Blob([filecontent], {
+            type: 'application/octet-stream'
+        });
+        var a = document.createElement('a');
+        var d = new Date();
+        var n = d.toISOString();
+        n = n.split('.');
+        n = n[0];
+        console.log(typeof(n));
+        n = n.replace(/-/g, '');
+        n = n.replace('T', '_');
+        n = n.replace(/:/g, '');
+        n = n + '_GMT'
+        filename = 'raw_' + etDevice.name + '_' + n + '.bin'
+        console.log('filename:' + filename)
+        a.download = filename;
+        a.href = window.URL.createObjectURL(bb);
+        a.click();
+    }
+
+    var get_idx = 0;
+    var get_idx_array = new ArrayBuffer(4);
+    var get_idx_view = new DataView(get_idx_array);
+    var done = false;
+    var blob;
+    var filesize;
+
+    function concatTypedArrays(a, b) { // a, b TypedArray of same type
+        var c = new(a.constructor)(a.length + b.length);
+        c.set(a, 0);
+        c.set(b, a.length);
+        return c;
+    }
+
+    function fileprogress_state(state) {
+        elt = document.getElementById("fileprogress");
+        elt.style.visibility = state;
+        elt = document.getElementById("fileprogress_label");
+        elt.style.visibility = state;
+    }
+
+    function handleDataf(event) {
+        var value = event.target.value
+        var msg;
+        if (event.target.value.byteLength == 0) {
+            console.log("in handleDataf... no data in event");
+        }
+        if (event.target.value.byteLength == 4) {
+            get_idx = 0;
+            download(blob);
+            stopDataNotifications(handleDataf);
+            fileprogress_state('hidden')
+            // disconnect();
+
+            done = true;
+            return;
+        }
+        // Should check length first... need to fix this later
+        rcvd_idx = value.getUint32(0, true);
+        if (get_idx == 0) {
+            handleDataf.packet_size = value.buffer.byteLength;
+            console.log('packet size: ' + handleDataf.packet_size);
+        } else {
+            ;
+        }
+        // console.log("Rcvd_idx " + rcvd_idx);
+        // Check that rcvd_idx is correct... otherwise ask for it again
+        let packet_size = handleDataf.packet_size;
+        if (rcvd_idx == get_idx) {
+            // should check packet_size... Leave for later
+            if (rcvd_idx == 0) { // no concat if first packet
+                blob = new Uint8Array(value.buffer.slice(4, ));
+                console.log("blob.length " + blob.length)
+                // console.log(value.buffer.slice(4, ));
+                // console.log(blob);
+                handleDataf.total = blob.length;
+            } else {
+                let oldblob = blob;
+                let buffer = new Uint8Array(value.buffer.slice(4, ));
+                blob = concatTypedArrays(oldblob, buffer);
+                handleDataf.total = blob.length;
+            }
+            get_idx = get_idx + 1;
+        } else {
+            console.log("rcvd_idx, get_idx" + rcvd_idx + "," + get_idx);
+            done = true;
+        }
+
+        // console.log("total " + blob.length + " try to send get_idx " + get_idx);
+        elt = document.getElementById("fileprogress");
+        // console.log(elt.style.visibility);
+        elt.value = blob.length / filesize;
+
+        if (blob.length == filesize) {
+            console.log("Got everything exactly. ")
+            get_idx = 0;
+            download(blob);
+            stopDataNotifications(handleDataf);
+            fileprogress_state('hidden')
+            // disconnect();
+            done = true;
+            return;
+        }
+
+        get_idx_view.setUint32(0, get_idx, true);
+        writeData(get_idx_array);
+    }
+
+
+    document.querySelector('#connect').addEventListener('click', event => {
+        console.log("connect");
+        update_status("connecting");
+        requestDevice()
+            .then(_ => {
+                console.log(etDevice);
+                document.querySelector("#name").innerHTML = "connected: " + etDevice.name;
+            })
+            .then(_ => update_status("getting status ..."))
+            .then(value => {
+                startDataNotifications(handleDataI);
+                let cmd = Uint8Array.of('I'.charCodeAt(0))
+                writeCmd(cmd)
+            })
+            .then(_ => {
+                var b = document.querySelectorAll("button");
+                for (button in b) {
+                    b[button].disabled = false;
+                }
+            })
+            .catch(error => {
+                console.log(error)
+            });
+    });
+    document.querySelector('#disconnect').addEventListener('click', event => {
+        console.log("disconnect");
+        disconnect()
+        document.querySelector("#name").innerHTML = "not connected"
+        document.getElementById("counts").value = 0;
+        document.getElementById("fileprogress").value = 0;
+
+        var b = document.querySelectorAll("button")
+        for (button in b) {
+            b[button].disabled = true;
+        }
+        document.querySelector("#connect").disabled = false;
+    });
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function delayPromise(delay) {
+        return new Promise(resolve => {
+            setTimeout(resolve, delay);
+        });
+    }
+
+
+    document.querySelector('#info').addEventListener('click', event => {
+        console.log("info");
+        startDataNotifications(handleDataI)
+            .then(() => {
+                let cmd = Uint8Array.of('I'.charCodeAt(0))
+                writeCmd(cmd)
+            })
+            .catch(error => {
+                console.log(error)
+            });
+        // .then(() => this.delayPromise(1000))
+    });
+
+    function update_memory_indicator(count) {
+        console.log(count + ", " + (count / (1 << 15)));
+        document.getElementById("counts").value = count / (1 << 15);
+        document.getElementById("counts_text").innerHTML = count + " / 32768";
+    }
+
+    document.querySelector('#check').addEventListener('click', event => {
+        console.log("check flash memory")
+        readCounts()
+            .then(value => {
+                let count = value.getUint32(0, true);
+                update_memory_indicator(count);
+            })
+            .then(_ => update_status("done checking memory"))
+            //.then(() => this.delayPromise(1000))
+            .catch(error => {
+                console.log(error)
+            });
+
+    });
+
+    document.querySelector('#erase').addEventListener('click', event => {
+        let cmd = Uint8Array.of('C'.charCodeAt(0))
+        writeCmd(cmd)
+            .then(_ => document.getElementById("info").click())
+            .then(_ => document.getElementById("check").click())
+            .catch(error => {
+                console.log(error)
+            });
+    });
+
+    function update_recording_status_elts(state) {
+        console.log('got state: ' + state);
+        var elt = document.getElementById('start');
+        var status_elt = document.getElementById('recording');
+        let start_msg = "start recording"
+        let stop_msg = "stop recording"
+        if (state == 1) {
+            status_elt.innerHTML = "Recording Encounters: YES"
+            document.getElementById('mark').disabled = false;
+            elt.innerHTML = stop_msg;
+            elt.setAttribute('state', "on");
+            console.log(elt);
+            this.elt = elt;
+        } else if (state == 0) {
+            status_elt.innerHTML = "Recording Encounters: NO"
+            document.getElementById('mark').disabled = true;
+            elt.innerHTML = start_msg;
+            elt.setAttribute('state', "off");
+            console.log(elt);
+            this.elt = elt;
+        }
+    }
+
+    document.querySelector('#start').addEventListener('click', event => {
+        var elt = document.getElementById('start');
+        var status_elt = document.getElementById('recording');
+        this.elt = elt;
+        console.log(elt);
+        let start_msg = "start recording"
+        let stop_msg = "stop recording"
+        var state;
+        if (elt.innerHTML == start_msg) {
+            // trying to start recording
+            console.log("change to: " + stop_msg);
+            elt.innerHTML = stop_msg;
+            cmd = Uint8Array.of('w'.charCodeAt(0));
+            state = 1;
+        } else if (elt.innerHTML == stop_msg) {
+            console.log("change to: " + start_msg);
+            elt.innerHTML = start_msg;
+            cmd = Uint8Array.of('s'.charCodeAt(0));
+            state = 0;
+        }
+        writeCmd(cmd).catch(error => {
+            console.log(error)
+        });
+        update_recording_status_elts(state);
+        /*
+                let cmd = Uint8Array.of('w'.charCodeAt(0))
+                writeCmd(cmd).catch(error => {
+                    console.log(error)
+                });
+                document.querySelector('#start').disabled = true;
+                document.querySelector('#stop').disabled = false;
+                document.getElementById("info").click();
+        */
+    });
+
+    document.querySelector('#stop').addEventListener('click', event => {
+        let cmd = Uint8Array.of('s'.charCodeAt(0))
+        writeCmd(cmd).catch(error => {
+            console.log(error)
+        });
+        document.querySelector('#start').disabled = false;
+        document.querySelector('#stop').disabled = true;
+        document.getElementById("info").click();
+        // document.getElementById("check").click();
+
+    });
+
+    function update_mark_button() {
+        var elt = document.getElementById('mark');
+        var status_elt = document.getElementById('proximity');
+        let mark_msg = 'Press when near someone';
+        let unmark_msg = 'Press when alone';
+        console.log(elt);
+        if (elt.innerHTML == mark_msg) {
+            status_elt.innerHTML = "Proximity: I am alone"
+            elt.setAttribute('state', "off");
+
+        } else if (elt.innerHTML == unmark_msg) {
+            status_elt.innerHTML = "Proximity: with someone"
+            elt.setAttribute('state', "on");
+        }
+
+
+    }
+    document.querySelector('#mark').addEventListener('click', event => {
+        let mark_msg = 'Press when near someone';
+        let unmark_msg = 'Press when alone';
+        var elt = document.getElementById('mark');
+        var cmd;
+
+        if (elt.innerHTML == mark_msg) {
+            elt.innerHTML = unmark_msg;
+            cmd = Uint8Array.of('M'.charCodeAt(0))
+        } else if (elt.innerHTML == unmark_msg) {
+            elt.innerHTML = mark_msg;
+            cmd = Uint8Array.of('U'.charCodeAt(0))
+        }
+        writeCmd(cmd).catch(error => {
+            console.log(error)
+        });
+        update_mark_button();
+        console.log(cmd);
+        console.log(typeof(cmd))
+
+
+
+    });
+    /*
+    document.querySelector('#unmark').addEventListener('click', event => {
+        let cmd = Uint8Array.of('U'.charCodeAt(0))
+        writeCmd(cmd).catch(error => {
+            console.log(error)
+        });
+    });
+    */
+    document.querySelector('#fetch').addEventListener('click', event => {
+        stopDataNotifications(handleDataI)
+            .then(_ => startDataNotifications(handleDataf))
+            .then(_ => {
+                return readCounts();
+            })
+            .then(value => {
+                let count = value.getUint32(0, true);
+                update_memory_indicator(count);
+                filesize = count * 32;
+            })
+            .then(_ => {
+                fileprogress_state('visible');
+                /* Start to try to xfer */
+                let value = Uint8Array.of('f'.charCodeAt(0));
+                writeCmd(value);
+                console.log("Trying to send f");
+            })
+            .then(_ => {
+                console.log("try to send get_idx")
+                get_idx_view.setUint32(0, get_idx, true);
+                writeData(get_idx_array);
+            })
+            .catch(error => {
+                console.log(error)
+            });
+
+    });
+
+</script>
+
+</html>
