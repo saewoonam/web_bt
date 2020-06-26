@@ -428,14 +428,18 @@
         console.log("disconnect");
         disconnect()
         document.querySelector("#name").innerHTML = "not connected"
-        document.getElementById("counts").value = 0;
-        document.getElementById("fileprogress").value = 0;
+        // document.getElementById("counts").value = 0;
+        // document.getElementById("fileprogress").value = 0;
 
         var b = document.querySelectorAll("button")
         for (button in b) {
             b[button].disabled = true;
         }
         document.querySelector("#connect").disabled = false;
+        stop_blink("recording");
+        document.getElementById("recording").innerHTML = 'Recording Encounters:';
+        document.getElementById("proximity").innerHTML = 'Proximity:';
+
     });
 
     function sleep(ms) {
