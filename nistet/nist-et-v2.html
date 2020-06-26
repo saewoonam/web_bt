@@ -493,6 +493,28 @@
             });
     });
 
+    var blinktask;
+
+    function start_blink(id) {
+        blinktask = setInterval(blinker, 1000, id);
+        console.log(blinktask);
+    }
+
+    function stop_blink(id) {
+        blinktask = clearInterval(blinktask);
+        if (document.getElementById(id)) {
+            var d = document.getElementById(id);
+            d.style.color = 'black';
+        }
+    }
+
+    function blinker(id) {
+        if (document.getElementById(id)) {
+            var d = document.getElementById(id);
+            d.style.color = (d.style.color == 'red' ? 'white' : 'red');
+        }
+    }
+
     function update_recording_status_elts(state) {
         console.log('got state: ' + state);
         var elt = document.getElementById('start');
@@ -504,15 +526,17 @@
             document.getElementById('mark').disabled = false;
             elt.innerHTML = stop_msg;
             elt.setAttribute('state', "on");
-            console.log(elt);
-            this.elt = elt;
+            start_blink("recording")
+            // console.log(elt);
+            //this.elt = elt;
         } else if (state == 0) {
             status_elt.innerHTML = "Recording Encounters: NO"
             document.getElementById('mark').disabled = true;
             elt.innerHTML = start_msg;
             elt.setAttribute('state', "off");
-            console.log(elt);
-            this.elt = elt;
+            // console.log(elt);
+            stop_blink("recording");
+            //this.elt = elt;
         }
     }
 
