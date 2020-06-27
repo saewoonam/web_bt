@@ -150,8 +150,10 @@
             <label id="fileprogress_label" style="visibility:hidden;"> file progress</label>
             <progress id="fileprogress" style="visibility:hidden;" value=0></progress>
         </div>
-        <div>
-            <button id="fetch" disabled>fetch</button>
+        <div class='fetch'>
+            <button id="fetch" disabled>fetch</button>&nbsp;&nbsp;&nbsp;&nbsp;
+            <button id="proces" onclick="location.href='https://saewoonam.github.io/web_bt/nistet/process_raw_v2.html';">process downloaded files
+            </button>
         </div>
     </p>
     <p>
@@ -185,7 +187,11 @@
     console.log(document.getElementById("fileprogress").hidden);
     if (/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
         // can't get notify working right on android right now
-        elt = document.getElementById("fetch").hidden = true;
+        // elt = document.getElementById("fetch").hidden = true;
+        elts = document.getElementsByClassName("fetch")
+        for (i in elts) {
+            elts[i].hidden = true;
+        }
         mobile = true;
     }
 
