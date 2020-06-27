@@ -152,7 +152,7 @@
         </div>
         <div class='fetch'>
             <button id="fetch" disabled>fetch</button>&nbsp;&nbsp;&nbsp;&nbsp;
-            <button id="proces" onclick="location.href='https://saewoonam.github.io/web_bt/nistet/process_raw_v2.html';">process downloaded files
+            <button id="proces" disabled onclick="location.href='https://saewoonam.github.io/web_bt/nistet/process_raw_v2.html';">process downloaded files
             </button>
         </div>
     </p>
@@ -522,7 +522,10 @@
     function blinker(id) {
         if (document.getElementById(id)) {
             var d = document.getElementById(id);
-            d.style.color = (d.style.color == 'red' ? 'white' : 'red');
+            d.style.color = 'red';
+            d.style.transition = '0.4s';
+            d.style.opacity = (d.style.opacity == 0 ? 1 : 0);
+            // d.style.color = (d.style.color == 'red' ? 'white' : 'red');
         }
     }
 
@@ -566,7 +569,7 @@
             cmd = Uint8Array.of('w'.charCodeAt(0));
             state = 1;
         } else if (elt.innerHTML == stop_msg) {
-            console.log("change to: " + start_msg);
+            console.log("change button label to: " + start_msg);
             elt.innerHTML = start_msg;
             cmd = Uint8Array.of('s'.charCodeAt(0));
             state = 0;
@@ -647,6 +650,7 @@
     });
     */
     document.querySelector('#fetch').addEventListener('click', event => {
+        document.getElementById("start").click()
         stopDataNotifications(handleDataI)
             .then(_ => startDataNotifications(handleDataf))
             .then(_ => {
