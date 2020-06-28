@@ -24,6 +24,8 @@
     <progress value="0" max="100" id="progress-bar"></progress>
     <div id="status"></div>
     <h1>Mark encounters after file is loaded</h1>
+    <select id="section_selector" disabled>
+    </select>
     <p id="p_grid">
         <div id="grid"></div>
     </p>
@@ -79,6 +81,20 @@
         var data;
         var grid = 0;
 
+        function reset_page() {
+            document.getElementById("save").disabled = true;
+            document.getElementById("plot").disabled = true;
+            document.querySelector('.encounter_selector').innerHTML = '';
+            document.getElementById('section_selector').innerHTML = '';
+
+            if (grid == 0) {
+                // Don't do anything
+            } else {
+                grid.data = [];
+            }
+
+        }
+
         function show_data(matrix) {
             var parentNode = document.getElementById('grid');
             if (grid == 0) {
@@ -132,6 +148,7 @@
             for (index = 0; index < 8; index++) {
                 b[index] = 0;
             }
+            var marks = [];
             var last_mark = 0;
             for (index = 0; index < counts; index++) {
                 let a = new Uint32Array(raw.slice(index * 32, (index + 1) * 32));
@@ -139,9 +156,80 @@
                 if (compare(a, b)) {
                     console.log('marker match: ' + index)
                     last_mark = index;
+                    marks.push(last_mark);
                 }
             }
-            let last_start = last_mark + 2;
+            marks.push(counts); // add mark beyond last counts
+            console.log('marks: ' + marks);
+            diff = marks.slice(1).map((item, index) => item - marks[index]);
+            console.log('diff: ' + diff);
+            const indexOfAll = (arr, val) => arr.reduce((acc, el, i) => (el > val ? [...acc, i] : acc), []);
+            index = indexOfAll(diff, 2);
+            // console.log(index);
+
+            // identify sections of data based on the marks
+            var type = 0; // use 0 for 32byte rawa, 1 for 64 byte encounters
+            var regions = [];
+            for (i in index) {
+                let r = [marks[index[i]], marks[index[i] + 1]]
+                let label = 'start: ' + r[0] + ' stop: ' + r[1];
+                r.push(label);
+                if (diff[i - 1] == 0) r.push(0);
+                else r.push(1);
+
+                regions.push(r);
+            }
+            // console.log(regions.length);
+            var section_text = regions.map(function(value, index) {
+                return value[2];
+            });
+            var sectionSelector = document.getElementById('section_selector');
+            sectionSelector.disabled = false;
+
+            assignOptions(section_text, sectionSelector, false);
+
+            function updateSection() {
+                console.log('update section ' + sectionSelector.value);
+
+                setSection(sectionSelector.value);
+            }
+            sectionSelector.addEventListener('change', updateSection, false);
+
+            function setSection(value) {
+                console.log('setSection value ' + value);
+                console.log('setSection section_text ')
+                console.log(section_text);
+
+                var idx = -1;
+                idx = section_text.findIndex(e => e == value);
+                /*
+                for (i in section_text) {
+                    console.log('section_text:"' + section_text[i] + '"');
+                    console.log(typeof(section_text[i]))
+                    console.log('value:"' + value + '"');
+                    console.log(typeof(value));
+                    if (section_text[i] === value) {
+                        idx = i;
+
+                    }
+                }*/
+                console.log('setSection find ' + idx);
+                // idx = 0;
+                raw2csv(raw, file, regions[idx][0] + 2, regions[idx][1]);
+            }
+            console.log('try to set to last value ' +
+                section_text[section_text.length - 1]);
+            this.sections = sectionSelector;
+            sectionSelector.selectedIndex = section_text.length - 1;
+            // sectionSelector.value = section_text[section_text.length - 1]; // set to last section
+            // console.log('sectionSelector ' + sectionSelector.value);
+            updateSection();
+        }
+
+        function raw2csv(raw, file, start, stop) {
+            // let last_start = last_mark + 2;
+            let last_start = start;
+            let counts = stop;
             var first, last, epoch_minute, id, flag, flag2;
             var mean37, n37, min37, max37, std237;
             var mean38, n38, min38, max38, std238;
@@ -258,7 +346,9 @@
             XLSX.utils.book_append_sheet(wb, ws, ws_name);
 
             /* write workbook */
-            if (WRITE_CSV) XLSX.writeFile(wb, file.name + '.csv');
+            var block_suffix = '.' + start + '_' + stop;
+
+            if (WRITE_CSV) XLSX.writeFile(wb, file.name + block_suffix + '.csv');
 
             show_data(simple_m);
             grid.addColumn({
@@ -272,7 +362,7 @@
             grid.setColumnWidth(3, 100);
             document.getElementById('save').disabled = false;
             document.getElementById('plot').disabled = false;
-            this.filename = file.name + '.marked.csv';
+            this.filename = file.name + block_suffix + '.marked.csv';
             var y = document.getElementById('grid');
             console.log(y.innerHTML);
             this.y = y;
@@ -280,8 +370,9 @@
             console.log(x[0]);
             // x.parentNode.removeChild(x);
             this.x = x[0];
-            // plot_data();
+            plot_data_v2();
         }
+
         document.querySelector('#plot').addEventListener('click', event => {
             plot_data_v2();
 
@@ -478,20 +569,7 @@
             var encounterSelector = document.querySelector('.encounter_selector');
             encounterSelector.disabled = false;
 
-            function assignOptions(textArray, selector) {
-                // add 'all' option first
-                var currentOption = document.createElement('option');
-                currentOption.text = 'all';
-                selector.appendChild(currentOption);
-                // add individual options next
-                for (var i = 0; i < textArray.length; i++) {
-                    currentOption = document.createElement('option');
-                    currentOption.text = textArray[i];
-                    selector.appendChild(currentOption);
-                }
-            }
-
-            assignOptions(unique, encounterSelector);
+            assignOptions(unique, encounterSelector, true);
 
             function updateEncounter() {
                 setBubblePlot(encounterSelector.value);
@@ -500,6 +578,21 @@
             encounterSelector.addEventListener('change', updateEncounter, false);
             firstPlot();
             setBubblePlot('all');
+        }
+
+        function assignOptions(textArray, selector, has_all = true) {
+            // add 'all' option first
+            if (has_all) {
+                var currentOption = document.createElement('option');
+                currentOption.text = 'all';
+                selector.appendChild(currentOption);
+            }
+            // add individual options next
+            for (var i = 0; i < textArray.length; i++) {
+                currentOption = document.createElement('option');
+                currentOption.text = textArray[i];
+                selector.appendChild(currentOption);
+            }
         }
 
         function plot_data() {
@@ -613,6 +706,7 @@
                 console.log('result: ' + data);
                 console.log(data)
                 console.log('typeof(data): ' + typeof(data));
+                reset_page();
                 parse_binary(data, file);
             };
             fr.onloadend = () => loaded;
