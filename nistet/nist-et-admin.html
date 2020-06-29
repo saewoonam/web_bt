@@ -101,6 +101,12 @@
         </div>
     </p>
     <p>
+        <div>
+            <button id="version" disabled>get version</button>&nbsp;&nbsp;&nbsp;
+            <span id="version_label"> ?? </span>
+        </div>
+    </p>
+    <p>
         <div class="btn-group2">
             <button id="start" disabled>start recording</button>&nbsp;&nbsp;&nbsp;
             <button id="stop" disabled>stop recording</button>
@@ -131,19 +137,6 @@
 
     <p>
         <h3 id="status">status:</h3>
-    </p>
-    <div hidden>
-        <p id="countP">counts???</p>
-        <p hidden id="cmdP">cmd???</p>
-        <p id="writingP">logging???</p>
-        <p id="progressP"></p>
-    </div>
-
-    <p>
-        <div hidden class="btn-group1">
-            <button hidden id="counts">get counts</button>
-            <button hidden id="readCmd">readCmd</button>
-        </div>
     </p>
 
 </body>
@@ -266,6 +259,18 @@
         stopDataNotifications(handleDataI);
 
     }
+
+    function handleDatav(event) {
+        var value = event.target.value;
+        let buf = value.buffer;
+        var msg;
+        console.log('handleDatav received ');
+        var version = Array.prototype.map.call(new Uint8Array(buf), x => String.fromCharCode(x)).join('');
+        console.log(version);
+        document.getElementById("version_label").innerHTML = version;
+        stopDataNotifications(handleDatav);
+    }
+
     var got_time = 0;
     var full_time = [0, 0];
     var start_time, stop_time;
@@ -528,6 +533,17 @@
                 console.log(error)
             });
     });
+
+    document.querySelector('#version').addEventListener('click', event => {
+        let cmdv = Uint8Array.of('v'.charCodeAt(0));
+        startDataNotifications(handleDatav)
+            .then(_ => writeCmd(cmdv))
+            .then(_ => sleep(100))
+            .catch(error => {
+                console.log(error)
+            });
+    });
+
     var time_ab = new ArrayBuffer(12);
     var time_array = new Uint32Array(time_ab);
 
