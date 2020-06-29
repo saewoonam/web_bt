@@ -145,7 +145,8 @@
     </div>
     <p>
         <div>
-            <button id="fetch" disabled>fetch</button>
+            <button id="fetch" disabled>fetch</button>&nbsp;&nbsp;&nbsp;&nbsp;
+            <button id="turbo" disabled>turbo fetch</button>
         </div>
     </p>
     <p>
@@ -310,6 +311,21 @@
         stopDataNotifications(handleDatav);
     }
 
+    var got_mtu = 0;
+    var mtu = 0;
+
+    function handleDatau(event) {
+        // get mtu
+
+        var value = event.target.value.getUint8();
+        let buf = value.buffer;
+        mtu = value;
+        console.log('handleDatau received ');
+        console.log('mtu: ' + mtu);
+        got_mtu = 0;
+        stopDataNotifications(handleDatau);
+    }
+
     var got_time = 0;
     var full_time = [0, 0];
     var start_time, stop_time;
@@ -417,6 +433,7 @@
                 console.log(value.buffer.slice(4, ));
                 console.log(blob);
                 handleDataf.total = blob.length;
+                handleDataf.start = new Date().getTime();
             } else {
                 let oldblob = blob;
                 let buffer = new Uint8Array(value.buffer.slice(4, ));
@@ -436,6 +453,8 @@
 
         if (blob.length == filesize) {
             console.log("Got everything exactly. ")
+            let xfer_time = (new Date().getTime() - handleDataf.start);
+            console.log('xfer_rate: ' + blob.length / xfer_time + ' kB/s');
             get_idx = 0;
             download(blob);
             stopDataNotifications(handleDataf);
@@ -449,6 +468,69 @@
         writeData(get_idx_array);
     }
 
+    var turbo_started = 0;
+    var turbo_timeout;
+
+    function turbo_failed() {
+        console.log('turbo failed: timeout')
+        fileprogress_state('hidden')
+        turbo_started = 0;
+        stopDataNotifications(handleDatat)
+            .catch(error => {
+                console.log(error);
+                document.querySelector('#disconnect').click();
+            });
+
+    }
+
+    function handleDatat(event) {
+        var value = event.target.value
+        var msg;
+        clearTimeout(turbo_timeout);
+        turbo_timeout = setTimeout(turbo_failed, 5000);
+        if (event.target.value.byteLength == 0) {
+            console.log("in handleDatat... no data in event");
+        }
+        // Should check length first... need to fix this later
+        rcvd_idx = value.getUint32(0, true);
+        console.log('received index ' + rcvd_idx);
+        if (turbo_started == 0) {
+            blob = new Uint8Array(value.buffer.slice(4, ));
+            console.log("blob.length " + blob.length)
+            // blob.set(value.buffer.slice(4, ), 4);
+            console.log(value.buffer.slice(4, ));
+            console.log(blob);
+            handleDatat.total = blob.length;
+            handleDatat.start = new Date().getTime();
+            turbo_started = 1;
+        } else {
+            let oldblob = blob;
+            let buffer = new Uint8Array(value.buffer.slice(4, ));
+            blob = concatTypedArrays(oldblob, buffer);
+            handleDatat.total = blob.length;
+            console.log("xfer_rate: " + blob.length / (new Date().getTime() - handleDatat.start));
+            // sleep(200);
+        }
+        // console.log("total " + blob.length + " try to send get_idx " + get_idx);
+        elt = document.getElementById("fileprogress");
+        // console.log(elt.style.visibility);
+        elt.value = blob.length / filesize;
+
+        if (blob.length == filesize) {
+            console.log("Got everything exactly. ")
+            // get_idx = 0;
+            download(blob);
+            stopDataNotifications(handleDatat);
+            fileprogress_state('hidden')
+            // disconnect();
+            done = true;
+            turbo_started = 0;
+            return;
+        }
+
+        get_idx_view.setUint32(0, get_idx, true);
+        writeData(get_idx_array);
+    }
 
     document.querySelector('#connect').addEventListener('click', event => {
         console.log("connect");
@@ -720,6 +802,37 @@
                 console.log(error)
             });
 
+    });
+
+    document.querySelector('#turbo').addEventListener('click', event => {
+        let cmdt = Uint8Array.of('t'.charCodeAt(0));
+        let cmdu = Uint8Array.of('u'.charCodeAt(0));
+        startDataNotifications(handleDatau)
+            .then(_ => writeCmd(cmdu))
+            .then(_ => sleep(100))
+            .then(_ => {
+                console.log('clicked check, got_mtu: ' + got_mtu);
+                got_mtu = 0;
+            })
+            .then(_ => {
+                return readCounts();
+            })
+            .then(value => {
+                let count = value.getUint32(0, true);
+                update_memory_indicator(count);
+                filesize = count * 32;
+            })
+            .then(_ => startDataNotifications(handleDatat))
+            .then(_ => {
+                fileprogress_state('visible');
+                /* Start to try to xfer */
+                turbo_timeout = setTimeout(turbo_failed, 5000);
+                writeCmd(cmdt);
+                console.log("Sent t");
+            })
+            .catch(error => {
+                console.log(error)
+            });
     });
 
 </script>
