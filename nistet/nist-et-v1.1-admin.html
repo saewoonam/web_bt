@@ -487,7 +487,7 @@
         var value = event.target.value
         var msg;
         clearTimeout(turbo_timeout);
-        turbo_timeout = setTimeout(turbo_failed, 5000);
+        turbo_timeout = setTimeout(turbo_failed, 1000);
         if (event.target.value.byteLength == 0) {
             console.log("in handleDatat... no data in event");
         }
@@ -508,6 +508,8 @@
             let buffer = new Uint8Array(value.buffer.slice(4, ));
             blob = concatTypedArrays(oldblob, buffer);
             handleDatat.total = blob.length;
+            console.log(value.buffer.slice(4, ));
+            console.log(blob);
             console.log("xfer_rate: " + blob.length / (new Date().getTime() - handleDatat.start));
             // sleep(200);
         }
