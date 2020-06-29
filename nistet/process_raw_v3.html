@@ -71,6 +71,31 @@
             }
             return true;
         }
+
+        function convertToCsv(data) {
+            return JSON.stringify(data)
+                .replace(/],\[/g, '\n')
+                .replace(/]]/g, '')
+                .replace(/\[\[/g, '')
+                // in JSON, double quotes are escaped, but in CSV they need to be
+                // escaped by another double quote
+                .replace(/\\"/g, '""');
+        }
+
+        function matrix_to_csv(m, filename) {
+            var filecontent = convertToCsv(m);
+            // var fileContent = "My epic novel that I don't want to lose.";
+            // https://stackoverflow.com/questions/11071473/how-can-javascript-save-to-a-local-file/11071549
+
+            var bb = new Blob([filecontent], {
+                type: 'text/plain'
+            });
+            var a = document.createElement('a');
+            a.download = filename;
+            a.href = window.URL.createObjectURL(bb);
+            a.click();
+        }
+
         document.getElementById('input').addEventListener('change', (e) => {
             const file = document.getElementById('input').files[0];
             if (file) {
@@ -277,7 +302,7 @@
             // console.log(matrix.length);
             if (matrix.length > 1) {
                 for (idx in matrix[0]) {
-                    console.log(idx + ':' + matrix[0][idx]);
+                    // console.log(idx + ':' + matrix[0][idx]);
                     grid.schema[idx]['title'] = matrix[0][idx];
                     if (idx == 1) grid.schema[idx]['hidden'] = true;
                     if (idx == 2) grid.schema[idx]['hidden'] = true;
@@ -318,18 +343,13 @@
                 array_row = [date_string, epoch_time, boot_time, rssi, channel, mac];
                 matrix.push(array_row);
             }
-            console.log(matrix);
+            // console.log(matrix);
             show_data_type0(matrix);
-            var ws_name = "SheetJS";
-            var wb = XLSX.utils.book_new(),
-                ws = XLSX.utils.aoa_to_sheet(matrix);
 
-            /* add worksheet to workbook */
-            XLSX.utils.book_append_sheet(wb, ws, ws_name);
-            /* write workbook */
             var block_suffix = '.' + start + '_' + stop;
-            if (WRITE_CSV) XLSX.writeFile(wb, file.name + block_suffix + '.csv');
 
+            var name = file.name + block_suffix + '.csv';
+            matrix_to_csv(matrix, name);
         }
 
         function raw2csv(raw, file, start, stop) {
