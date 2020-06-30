@@ -508,8 +508,10 @@
             let buffer = new Uint8Array(value.buffer.slice(4, ));
             blob = concatTypedArrays(oldblob, buffer);
             handleDatat.total = blob.length;
-            console.log(value.buffer.slice(4, ));
-            console.log(blob);
+            // turbo_started = turbo_started + 1;
+            // console.log('turbo_started: ' + turbo_started);
+            // console.log(value.buffer.slice(4, ));
+            // console.log(blob);
             console.log("xfer_rate: " + blob.length / (new Date().getTime() - handleDatat.start));
             // sleep(200);
         }
@@ -517,7 +519,17 @@
         elt = document.getElementById("fileprogress");
         // console.log(elt.style.visibility);
         elt.value = blob.length / filesize;
-
+        /*
+        if (handleDatat.number_of_packets == turbo_started) {
+            console.log("Got all packets");
+            // download(blob);
+            stopDataNotifications(handleDatat);
+            fileprogress_state('hidden')
+            // disconnect();
+            done = true;
+            turbo_started = 0;
+            return;
+        } */
         if (blob.length == filesize) {
             console.log("Got everything exactly. ")
             // get_idx = 0;
@@ -530,8 +542,8 @@
             return;
         }
 
-        get_idx_view.setUint32(0, get_idx, true);
-        writeData(get_idx_array);
+        // get_idx_view.setUint32(0, get_idx, true);
+        // writeData(get_idx_array);
     }
 
     document.querySelector('#connect').addEventListener('click', event => {
@@ -809,6 +821,16 @@
     document.querySelector('#turbo').addEventListener('click', event => {
         let cmdt = Uint8Array.of('t'.charCodeAt(0));
         let cmdu = Uint8Array.of('u'.charCodeAt(0));
+        /*
+        var params_ab = new ArrayBuffer(4);
+        var params_view = new DataView(params_ab);
+        params_view.setUint16(0, 0, true);
+        params_view.setUint16(2, 8, true);
+
+        writeData(params_ab);
+
+        handleDatat.number_of_packets = 8;
+        */
         startDataNotifications(handleDatau)
             .then(_ => writeCmd(cmdu))
             .then(_ => sleep(100))
