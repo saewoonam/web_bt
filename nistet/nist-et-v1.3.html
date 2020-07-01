@@ -292,6 +292,19 @@
 		update_recording_status_elts(value & 0x01);
 		msg = "Logging to flash: " + msg;
 		console.log(msg)
+		var mark_bool = value > 2;
+
+		let mark_msg = 'Press when near someone';
+		let unmark_msg = 'Press when alone';
+		var elt = document.getElementById('mark');
+
+		if (mark_bool) {
+			// set message to unmark since we are marking
+			elt.innerHTML = unmark_msg;
+		} else {
+			elt.innerHTML = mark_msg;
+		}
+		update_mark_button();
 		stopDataNotifications(handleDataI);
 
 	}
@@ -453,7 +466,12 @@
 		stop_blink("recording");
 		document.getElementById("recording").innerHTML = 'Recording Encounters:';
 		document.getElementById("proximity").innerHTML = 'Proximity:';
+		stop_blink("recording");
 
+		let mark_msg = 'Press when near someone';
+		var elt = document.getElementById('mark');
+		elt.innerHTML = mark_msg;
+		update_mark_button();
 	});
 
 	function sleep(ms) {
@@ -545,7 +563,7 @@
 	}
 
 	function update_recording_status_elts(state) {
-		console.log('got state: ' + state);
+		console.log('got recording state: ' + state);
 		var elt = document.getElementById('start');
 		var status_elt = document.getElementById('recording');
 		let start_msg = "start recording"
@@ -588,6 +606,10 @@
 			elt.innerHTML = start_msg;
 			cmd = Uint8Array.of('s'.charCodeAt(0));
 			state = 0;
+			let mark_msg = 'Press when near someone';
+			var elt = document.getElementById('mark');
+			elt.innerHTML = mark_msg;
+			update_mark_button();
 		}
 		writeCmd(cmd).catch(error => {
 			console.log(error)
