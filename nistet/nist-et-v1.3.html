@@ -123,7 +123,8 @@
 		</div>
 
 		<div>
-			<button id="info" disabled>refresh</button>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+			<button id="info" disabled>refresh</button>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+			<button id="A" disabled>set clock</button>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 			<button id="erase" disabled>erase flash</button>
 			<button id="check" hidden disabled>check memory</button>
 
@@ -307,6 +308,34 @@
 		update_mark_button();
 		stopDataNotifications(handleDataI);
 
+	}
+
+
+	var got_time = 0;
+	var full_time = [0, 0];
+	var start_time, stop_time;
+
+	function handleDataA(event) {
+		// Read time since reboot
+		//  In google chrome, data is coming in two packets???
+		//  I thought it would be 1 packet
+		var value = event.target.value;
+		let buf = value.buffer;
+		var msg;
+		console.log('handleDataA received ');
+		console.log(value.buffer);
+		time = new Uint32Array(buf);
+		full_time[got_time] = time[0];
+		console.log(time);
+		got_time += time.length;
+		// Need to set timout to make sure we get both numbers
+		if (got_time == 2) {
+			stop_time = (new Date()).getTime();
+			stopDataNotifications(handleDataA);
+			console.log("got both");
+			console.log(full_time);
+			// got_time = 0;
+		}
 	}
 
 	function download(filecontent) {
@@ -714,6 +743,37 @@
 				console.log(error)
 			});
 
+	});
+	var time_ab = new ArrayBuffer(12);
+	var time_array = new Uint32Array(time_ab);
+
+	document.querySelector('#A').addEventListener('click', event => {
+		let cmdO = Uint8Array.of('O'.charCodeAt(0));
+		let cmdA = Uint8Array.of('A'.charCodeAt(0));
+		start_time = (new Date()).getTime();
+		startDataNotifications(handleDataA)
+			.then(_ => writeCmd(cmdA))
+			.then(_ => sleep(100))
+			.then(_ => {
+				console.log('clicked check, got_time: ' + got_time);
+				got_time = 0;
+				var mean = parseInt((start_time + stop_time) / 2);
+				let offset = mean % 1000;
+				mean = parseInt(mean / 1000);
+				full_time[0] -= offset;
+
+				console.log(mean);
+				console.log(full_time);
+				time_array[0] = mean;
+				time_array[1] = full_time[0];
+				time_array[2] = full_time[1];
+				console.log(time_ab);
+			})
+			.then(_ => writeData(time_ab))
+			.then(_ => writeCmd(cmdO))
+			.catch(error => {
+				console.log(error)
+			});
 	});
 </script>
 
