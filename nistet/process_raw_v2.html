@@ -1,651 +1,668 @@
 <!DOCTYPE html>
 <html lang="en">
 <style>
-    #grid {
-        height: 300px;
-        width: 300px;
-    }
+	#div_grid {
+		height: 300px;
+		width: 90%;
+		border: 2px solid;
+		padding: 20px;
+		resize: both;
+		overflow: auto;
+	}
 
-    #grid canvas,
-    #grid canvas-datagrid {
-        --cdg-height: 300px;
-        --cdg-width: 500px;
-    }
-
+	#div_grid canvas,
+	#div_grid canvas-datagrid {
+		/* --cdg-height: 300px; */
+		/* --cdg-width: 70%; */
+	}
 </style>
 
 <body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/es5-shim/4.5.14/es5-shim.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/es5-shim/4.5.14/es5-shim.min.js"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.2/xlsx.min.js"></script>
-    <script src="https://unpkg.com/canvas-datagrid"></script>
-    <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
-    <input type='file' id='input' accept=".bin">
-    <progress value="0" max="100" id="progress-bar"></progress>
-    <div id="status"></div>
-    <h1>Mark encounters after file is loaded</h1>
-    <p id="p_grid">
-        <div id="grid"></div>
-    </p>
-    <p>
-        <div>
-            <button id="save" disabled>save</button>
-        </div>
-    </p>
-    <p>
-        <div>
-            <button id="plot" disabled>show plot</button>
-        </div>
-    </p>
-    <div>
-        <p>
-            <div class="control-row" disabled>
-                encounter id: <select class="encounter_selector" disabled>
-                </select>
-            </div>
-        </p>
-        <div class="plot" id="plotDiv">
-            <!-- Plotly chart will be drawn inside this DIV -->
-        </div>
-    </div>
-
-
-    <script>
-        console.log("hello")
-        var WRITE_CSV = true;
-        var THRESHOLD = 60;
-        /*
-        https://stackoverflow.com/questions/21553528/how-to-test-for-equality-in-arraybuffer-dataview-and-typedarray
-        */
-        function equal32(a, b) {
-            const ua = new Uint32Array(a.buffer, a.byteOffset, a.byteLength / 4);
-            const ub = new Uint32Array(b.buffer, b.byteOffset, b.byteLength / 4);
-            return compare(ua, ub);
-        }
-
-        function compare(a, b) {
-            for (let i = a.length; - 1 < i; i -= 1) {
-                if ((a[i] !== b[i])) return false;
-            }
-            return true;
-        }
-        document.getElementById('input').addEventListener('change', (e) => {
-            const file = document.getElementById('input').files[0];
-            if (file) {
-                processFile(file);
-            }
-        })
-
-        var data;
-        var grid = 0;
-
-        function show_data(matrix) {
-            var parentNode = document.getElementById('grid');
-            if (grid == 0) {
-                grid = canvasDatagrid({
-                    parentNode: parentNode,
-                    data: matrix.slice(1),
-                    autoGenerateSchema: true
-                });
-            } else {
-                grid.data = matrix.slice(1);
-                // grid.schema = [{}];
-            }
-            grid.addEventListener('rendercell', function(e) {
-                let r_idx = e.cell.rowIndex;
-                let c_idx = e.cell.columnIndex;
-                // console.log(e)
-                // console.log('row: ' + r_idx);
-                if ((c_idx < 3) && (c_idx >= 0)) e.ctx.fillStyle = '#e0e0ff';
-
-                if ((e.row[1] < THRESHOLD) && (e.row[1] > 0)) {
-                    e.ctx.fillStyle = '#FF0000';
-                } else if (e.row[1] == 0) {
-                    e.ctx.fillStyle = '#FFFF00';
-                }
-            });
-            grid.addEventListener('beforebeginedit', function(e) {
-                let c_idx = e.cell.columnIndex;
-                // console.log(e)
-                if (c_idx < 3) e.preventDefault();
-            });
-
-            grid.autosize();
-            // console.log(matrix.length);
-            if (matrix.length > 1) {
-                for (idx in matrix[0]) {
-                    console.log(idx + ':' + matrix[0][idx]);
-                    grid.schema[idx]['title'] = matrix[0][idx];
-                }
-            }
-        }
-
-        function buf2hex(buffer) { // buffer is an ArrayBuffer
-            // https://stackoverflow.com/questions/40031688/javascript-arraybuffer-to-hex
-            return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join('');
-        }
-
-        function parse_binary(raw, file) {
-            let counts = raw.byteLength / 32;
-            console.log('counts: ' + counts);
-            let b = new Uint32Array(8);
-            for (index = 0; index < 8; index++) {
-                b[index] = 0;
-            }
-            var last_mark = 0;
-            for (index = 0; index < counts; index++) {
-                let a = new Uint32Array(raw.slice(index * 32, (index + 1) * 32));
-
-                if (compare(a, b)) {
-                    console.log('marker match: ' + index)
-                    last_mark = index;
-                }
-            }
-            let last_start = last_mark + 2;
-            var first, last, epoch_minute, id, flag, flag2;
-            var mean37, n37, min37, max37, std237;
-            var mean38, n38, min38, max38, std238;
-            var mean39, n39, min39, max39, std239;
-            console.log('last_start: ' + last_start);
-            // Should check that last_mark is < counts
-            var matrix = [
-                ['time', 'epoch_minute', 'first', 'last',
-                    'mean37', 'n37', 'min37', 'max37', 'var37',
-                    'mean38', 'n38', 'min38', 'max38', 'var38',
-                    'mean39', 'n39', 'min39', 'max39', 'var39',
-                    'flag', 'flag2', 'encounter_id'
-                ]
-            ];
-            var simple_m = [
-                ['time', 'rssi', 'encounter_id']
-            ];
-
-            console.log("write rows that don't pass");
-            for (index = last_start; index < counts; index += 2) {
-                let row = new DataView(raw.slice(index * 32, (index + 2) * 32));
-                // console.log(row)
-                first = row.getUint8(6);
-                last = row.getUint8(7);
-                epoch_minute = row.getUint32(8, true);
-                let tz_offset_ms = new Date().getTimezoneOffset() * 60 * 1000;
-                d = new Date(epoch_minute * 60 * 1000 - tz_offset_ms);
-                // console.log(d);
-                date_string = d.toISOString();
-                date_string = date_string.split('.');
-                date_string = date_string[0];
-                id = row.buffer.slice(12, 12 + 32);
-                // console.log(id)
-                id = buf2hex(id);
-                // console.log(id)
-
-                var offset = 44;
-                mean37 = row.getUint8(offset);
-                n37 = row.getUint8(offset + 1);
-                min37 = row.getUint8(offset + 2);
-                max37 = row.getUint8(offset + 3);
-                std237 = row.getUint16(offset + 4, true);
-                var offset = 50;
-                mean38 = row.getUint8(offset);
-                n38 = row.getUint8(offset + 1);
-                min38 = row.getUint8(offset + 2);
-                max38 = row.getUint8(offset + 3);
-                std238 = row.getUint16(offset + 4, true);
-                var offset = 56;
-                mean39 = row.getUint8(offset);
-                n39 = row.getUint8(offset + 1);
-                min39 = row.getUint8(offset + 2);
-                max39 = row.getUint8(offset + 3);
-                std239 = row.getUint16(offset + 4, true);
-                flag = row.getUint8(62);
-                flag2 = row.getUint8(63);
-                if (id == '01'.repeat(32)) {
-                    date_string = date_string.split(':').slice(0, -1).join(':')
-                    date_string = date_string + ":" + ("00" + first).slice(-2)
-                    console.log(date_string);
-                    console.log(first + ", " + last);
-                    console.log(id)
-                }
-                if (id == '02'.repeat(32)) {
-                    date_string = date_string.split(':').slice(0, -1).join(':')
-                    date_string = date_string + ":" + ("00" + first).slice(-2)
-                    console.log(id)
-                }
-                array_row = [date_string, epoch_minute, first, last,
-                    mean37, n37, min37, max37, std237,
-                    mean38, n38, min38, max38, std238,
-                    mean39, n39, min39, max39, std239,
-                    flag, flag2, id
-                ]
-                means = [];
-                if (n37) means.push(mean37);
-                if (n38) means.push(mean38);
-                if (n39) means.push(mean39);
-                if (means.length == 0) rssi = 0;
-                else rssi = Math.min(...means);
-
-                simple_row = [date_string, rssi, id];
-                // array_row = [flag, flag2]
-                // Add checks before we add to file
-                // 1.. Valid crypto flag==7
-                // 2.. Duration is greater than >30 seconds
-                // 
-                if (flag == 7) {
-                    matrix.push(array_row);
-                    simple_m.push(simple_row);
-                } else {
-                    console.log('index: ' + index);
-                    console.log(array_row);
-                }
-                // console.log(index + ":" + flag);
-            }
-            console.log("done writing rows that don't pass");
-            // console.log(matrix);
-            var filename = "write.xlsb";
-
-            var data = [
-                [1, 2, 3],
-                [true, false, null, "sheetjs"],
-                ["foo", "bar", new Date("2014-02-19T14:30Z"), "0.3"],
-                ["baz", null, "qux"]
-            ]
-            // console.log(data);
-            var ws_name = "SheetJS";
-
-            var wb = XLSX.utils.book_new(),
-                ws = XLSX.utils.aoa_to_sheet(matrix);
-
-            /* add worksheet to workbook */
-            XLSX.utils.book_append_sheet(wb, ws, ws_name);
-
-            /* write workbook */
-            if (WRITE_CSV) XLSX.writeFile(wb, file.name + '.csv');
-
-            show_data(simple_m);
-            grid.addColumn({
-                defaultValue: 0,
-                title: 'close encounter',
-                type: 'number',
-                name: 'close encounter'
-            });
-            grid.autosize();
-            grid.setColumnWidth(2, 110);
-            grid.setColumnWidth(3, 100);
-            document.getElementById('save').disabled = false;
-            document.getElementById('plot').disabled = false;
-            this.filename = file.name + '.marked.csv';
-            var y = document.getElementById('grid');
-            console.log(y.innerHTML);
-            this.y = y;
-            var x = document.getElementsByTagName("canvas-datagrid");
-            console.log(x[0]);
-            // x.parentNode.removeChild(x);
-            this.x = x[0];
-            // plot_data();
-        }
-        document.querySelector('#plot').addEventListener('click', event => {
-            plot_data_v2();
-
-        });
-
-        function plot_data_v2() {
-            var raw = grid.data
-
-            let ids = raw.map(function(value) {
-                return value[2];
-            })
-            var unique = [...new Set(ids)];
-            // console.log(unique);            
-
-            var data = {};
-            for (idx in unique) {
-                var interesting = raw.filter(function(value) {
-                    return value[2] == unique[idx];
-                });
-                d = {
-                    type: 'scatter',
-                    mode: 'markers',
-                    name: unique[idx].substring(0, 6),
-                    x: interesting.map(function(value, index) {
-                        return value[0];
-                    }),
-                    y: interesting.map(function(value, index) {
-                        return -value[1];
-                    })
-                }
-                data[unique[idx]] = d;
-            }
-            delete data['01'.repeat(32)];
-            delete data['02'.repeat(32)];
-            /*  I don't know why this doesn't work...
-            function setBubblePlot(chosenEncounter) {
-                let pdiv = document.querySelector('#plotDiv');
-                this.pdiv = pdiv;
-                if (chosenEncounter == 'all') {
-                    var d = Object.values(data);
-
-                } else {
-                    var d = data[chosenEncounter];
-                }
-                var layout = {
-                    title: 'all'
-                };
-
-                console.log(d);
-                Plotly.newPlot('plotDiv', d, layout);
-            }
-            */
-
-            function setBubblePlot(chosenEncounter) {
-                let pdiv = document.querySelector('#plotDiv');
-                if (chosenEncounter == 'all') {
-                    for (i in pdiv.data) {
-                        delete pdiv.data[i].visible;
-                    }
-                } else {
-                    for (i in pdiv.data) {
-                        if (chosenEncounter.startsWith(pdiv.data[i].name)) {
-                            delete pdiv.data[i].visible;
-                        } else {
-                            pdiv.data[i].visible = 'legendonly';
-                            // console.log(pdiv.data[i].name);
-                        }
-                    }
-
-                }
-                update = {
-                    title: chosenEncounter.substring(0, 8) + "..."
-                };
-                Plotly.redraw('plotDiv');
-                Plotly.relayout('plotDiv', update);
-            }
-
-            function build_region(start, stop) {
-                return {
-                    type: 'rect',
-                    // x-reference is assigned to the x-values
-                    xref: 'x',
-                    // y-reference is assigned to the plot paper [0,1]
-                    yref: 'paper',
-                    x0: start,
-                    y0: 0,
-                    x1: stop,
-                    y1: 1,
-                    fillcolor: 'lightsalmon',
-                    opacity: 0.2,
-                    line: {
-                        width: 0
-                    }
-
-                };
-            }
-
-            function firstPlot() {
-                // get all the traces
-                var d = Object.values(data);
-                var mark = raw.filter(function(value) {
-                    return value[2] == '01'.repeat(32);
-                });
-                console.log(mark);
-                mark_x = mark.map(function(value, index) {
-                    return value[0];
-                });
-                var mark_lines = [];
-                for (i in mark_x) {
-                    line = {
-                        type: 'line',
-                        // x-reference is assigned to the x-values
-                        xref: 'x',
-                        // y-reference is assigned to the plot paper [0,1]
-                        yref: 'paper',
-                        x0: mark_x[i],
-                        y0: 0,
-                        x1: mark_x[i],
-                        y1: 1,
-                        line: {
-                            color: 'rgb(55, 128, 191)',
-                            width: 1,
-                            dash: "10px,20px,10px"
-                        }
-                    };
-                    mark_lines.push(line);
-                    // console.log(line);
-                }
-                unmark = raw.filter(function(value) {
-                    return value[2] == '02'.repeat(32);
-                });
-                console.log(unmark);
-                unmark_x = unmark.map(function(value, index) {
-                    return value[0];
-                });
-                for (i in unmark_x) {
-                    line = {
-                        type: 'line',
-                        // x-reference is assigned to the x-values
-                        xref: 'x',
-                        // y-reference is assigned to the plot paper [0,1]
-                        yref: 'paper',
-                        x0: unmark_x[i],
-                        y0: 0,
-                        x1: unmark_x[i],
-                        y1: 1,
-                        line: {
-                            color: 'rgb(50, 171, 96)',
-                            width: 1,
-                            dash: '20px,20px,10px'
-                        }
-                    };
-                    mark_lines.push(line);
-                    // console.log(line);
-                }
-                // console.log(mark_lines);
-                for (i in unmark_x) {
-                    var interesting = mark_x.filter(function(value) {
-                        return value < unmark_x[i];
-                    });
-                    if (interesting.length > 0) {
-                        console.log(interesting.slice(-1)[0]);
-                        console.log(unmark_x[i]);
-                        rect = build_region(interesting.slice(-1)[0], unmark_x[i]);
-                        mark_lines.push(rect);
-                        console.log(rect);
-                    }
-                }
-
-                var layout = {
-                    title: 'all',
-                    margin: {
-                        l: 40,
-                        r: 100,
-                        b: 50,
-                        t: 30,
-                        pad: 10
-                    },
-                    shapes: mark_lines
-                };
-
-                // console.log(d);
-                Plotly.newPlot('plotDiv', d, layout, {
-                    displayModeBar: true
-                }, {
-                    responsive: true
-                });
-                /*
-                this.p = p
-                this.pdiv = document.querySelector('#plotDiv');
-                console.log(p);*/
-            };
-
-            var encounterSelector = document.querySelector('.encounter_selector');
-            encounterSelector.disabled = false;
-
-            function assignOptions(textArray, selector) {
-                // add 'all' option first
-                var currentOption = document.createElement('option');
-                currentOption.text = 'all';
-                selector.appendChild(currentOption);
-                // add individual options next
-                for (var i = 0; i < textArray.length; i++) {
-                    currentOption = document.createElement('option');
-                    currentOption.text = textArray[i];
-                    selector.appendChild(currentOption);
-                }
-            }
-
-            assignOptions(unique, encounterSelector);
-
-            function updateEncounter() {
-                setBubblePlot(encounterSelector.value);
-            }
-            console.log(encounterSelector);
-            encounterSelector.addEventListener('change', updateEncounter, false);
-            firstPlot();
-            setBubblePlot('all');
-        }
-
-        function plot_data() {
-            var raw = grid.data
-            var unique = [...new Set(raw.map(function(value) {
-                return value[2];
-            }))];
-            // console.log(unique);
-
-            let b = {};
-            ids = raw.map(function(value) {
-                return value[2];
-            })
-            ids.forEach(el => {
-                b[el] = (b[el] || 0) + 1;
-            })
-            // console.log(b);
-
-            data = [];
-            for (idx in unique) {
-                var interesting = raw.filter(function(value) {
-                    return value[2] == unique[idx];
-                });
-                d = {
-                    type: 'scatter',
-                    mode: 'markers',
-                    name: unique[idx].substring(0, 6),
-                    x: interesting.map(function(value, index) {
-                        return value[0];
-                    }),
-                    y: interesting.map(function(value, index) {
-                        return -value[1];
-                    })
-                }
-                data.push(d);
-            }
-            /*
-            var data = [{
-                type: 'scatter',
-                mode: 'markers',
-                x: x_values,
-                y: y_values
-                
-                x: interesting.map(function(value, index) {
-                    return value[0];
-                }),
-                y: interesting.map(function(value, index) {
-                    return -value[1];
-                })
-
-            }]
-            */
-            var layout = {
-                yaxis: {
-                    type: 'linear'
-                }
-            }
-            Plotly.newPlot('plotDiv', data, layout)
-        }
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.2/xlsx.min.js"></script>
+	<script src="https://unpkg.com/canvas-datagrid"></script>
+	<script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+	<input type='file' id='input' accept=".bin">
+	<progress value="0" max="100" id="progress-bar"></progress>
+	<div id="status"></div>
+	<h1>Mark encounters after file is loaded</h1>
+	<p id="p_grid">
+		<div id="div_grid"></div>
+	</p>
+	<p>
+		<div>
+			<button id="save" disabled>save</button>
+		</div>
+	</p>
+	<p>
+		<div>
+			<button id="plot" disabled>show plot</button>
+		</div>
+	</p>
+	<div>
+		<p>
+			<div class="control-row" disabled>
+				encounter id: <select class="encounter_selector" disabled>
+				</select>
+			</div>
+		</p>
+		<div class="plot" id="plotDiv">
+			<!-- Plotly chart will be drawn inside this DIV -->
+		</div>
+	</div>
 
 
-        document.querySelector('#save').addEventListener('click', event => {
-            var ws_name = "SheetJS";
+	<script>
+		console.log("hello")
+		var WRITE_CSV = true;
+		var THRESHOLD = 60;
+		/*
+		https://stackoverflow.com/questions/21553528/how-to-test-for-equality-in-arraybuffer-dataview-and-typedarray
+		*/
+		function equal32(a, b) {
+			const ua = new Uint32Array(a.buffer, a.byteOffset, a.byteLength / 4);
+			const ub = new Uint32Array(b.buffer, b.byteOffset, b.byteLength / 4);
+			return compare(ua, ub);
+		}
 
-            // this is a hack... use global variable grid
-            console.log(grid.changes);
-            for (index = 0; index < grid.changes.length; index++) {
-                item = grid.changes[index];
-                // console.log(item);
-                if (item) {
-                    key = 'close encounter';
-                    if (key in item) {
-                        grid.data[index].push(item[key]);
-                        console.log(index + ": " + item[key]);
-                    }
-                }
-            }
-            var titles = [];
-            for (i in grid.schema) {
+		function compare(a, b) {
+			for (let i = a.length; - 1 < i; i -= 1) {
+				if ((a[i] !== b[i])) return false;
+			}
+			return true;
+		}
+		document.getElementById('input').addEventListener('change', (e) => {
+			const file = document.getElementById('input').files[0];
+			if (file) {
+				processFile(file);
+			}
+		})
 
-                titles.push(grid.schema[i]['title']);
-            }
-            grid.data.unshift(titles);
-            var wb = XLSX.utils.book_new(),
-                ws = XLSX.utils.aoa_to_sheet(grid.data);
+		var data;
+		var grid = 0;
 
-            /* add worksheet to workbook */
-            XLSX.utils.book_append_sheet(wb, ws, ws_name);
+		function show_data(matrix) {
+			var parentNode = document.getElementById('div_grid');
+			if (grid == 0) {
+				grid = canvasDatagrid({
+					parentNode: parentNode,
+					data: matrix.slice(1),
+					autoGenerateSchema: true
+				});
+			} else {
+				grid.data = matrix.slice(1);
+				// grid.schema = [{}];
+			}
+			grid.addEventListener('rendercell', function (e) {
+				let r_idx = e.cell.rowIndex;
+				let c_idx = e.cell.columnIndex;
+				// console.log(e)
+				// console.log('row: ' + r_idx);
+				if ((c_idx < 3) && (c_idx >= 0)) e.ctx.fillStyle = '#e0e0ff';
 
-            /* write workbook */
-            XLSX.writeFile(wb, this.filename + '.csv');
-            grid.data = grid.data.slice(1);
+				if ((e.row[1] < THRESHOLD) && (e.row[1] > 0)) {
+					e.ctx.fillStyle = '#FF0000';
+				} else if (e.row[1] == 0) {
+					e.ctx.fillStyle = '#FFFF00';
+				}
+			});
+			grid.addEventListener('beforebeginedit', function (e) {
+				let c_idx = e.cell.columnIndex;
+				// console.log(e)
+				if (c_idx < 3) e.preventDefault();
+			});
 
-        });
+			grid.autosize();
+			// console.log(matrix.length);
+			if (matrix.length > 1) {
+				for (idx in matrix[0]) {
+					console.log(idx + ':' + matrix[0][idx]);
+					grid.schema[idx]['title'] = matrix[0][idx];
+				}
+			}
+		}
+
+		function buf2hex(buffer) { // buffer is an ArrayBuffer
+			// https://stackoverflow.com/questions/40031688/javascript-arraybuffer-to-hex
+			return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join('');
+		}
+
+		function parse_binary(raw, file) {
+			let counts = raw.byteLength / 32;
+			console.log('counts: ' + counts);
+			let b = new Uint32Array(8);
+			for (index = 0; index < 8; index++) {
+				b[index] = 0;
+			}
+			var last_mark = 0;
+			for (index = 0; index < counts; index++) {
+				let a = new Uint32Array(raw.slice(index * 32, (index + 1) * 32));
+
+				if (compare(a, b)) {
+					console.log('marker match: ' + index)
+					last_mark = index;
+				}
+			}
+			let last_start = last_mark + 2;
+			var first, last, epoch_minute, id, flag, flag2;
+			var mean37, n37, min37, max37, std237;
+			var mean38, n38, min38, max38, std238;
+			var mean39, n39, min39, max39, std239;
+			console.log('last_start: ' + last_start);
+			// Should check that last_mark is < counts
+			var matrix = [
+				['time', 'epoch_minute', 'first', 'last',
+					'mean37', 'n37', 'min37', 'max37', 'var37',
+					'mean38', 'n38', 'min38', 'max38', 'var38',
+					'mean39', 'n39', 'min39', 'max39', 'var39',
+					'flag', 'flag2', 'encounter_id'
+				]
+			];
+			var simple_m = [
+				['time', 'rssi', 'encounter_id']
+			];
+
+			console.log("write rows that don't pass");
+			for (index = last_start; index < counts; index += 2) {
+				let row = new DataView(raw.slice(index * 32, (index + 2) * 32));
+				// console.log(row)
+				first = row.getUint8(6);
+				last = row.getUint8(7);
+				epoch_minute = row.getUint32(8, true);
+				let tz_offset_ms = new Date().getTimezoneOffset() * 60 * 1000;
+				d = new Date(epoch_minute * 60 * 1000 - tz_offset_ms);
+				// console.log(d);
+				date_string = d.toISOString();
+				date_string = date_string.split('.');
+				date_string = date_string[0];
+				id = row.buffer.slice(12, 12 + 32);
+				// console.log(id)
+				id = buf2hex(id);
+				// console.log(id)
+
+				var offset = 44;
+				mean37 = row.getUint8(offset);
+				n37 = row.getUint8(offset + 1);
+				min37 = row.getUint8(offset + 2);
+				max37 = row.getUint8(offset + 3);
+				std237 = row.getUint16(offset + 4, true);
+				var offset = 50;
+				mean38 = row.getUint8(offset);
+				n38 = row.getUint8(offset + 1);
+				min38 = row.getUint8(offset + 2);
+				max38 = row.getUint8(offset + 3);
+				std238 = row.getUint16(offset + 4, true);
+				var offset = 56;
+				mean39 = row.getUint8(offset);
+				n39 = row.getUint8(offset + 1);
+				min39 = row.getUint8(offset + 2);
+				max39 = row.getUint8(offset + 3);
+				std239 = row.getUint16(offset + 4, true);
+				flag = row.getUint8(62);
+				flag2 = row.getUint8(63);
+				if (id == '01'.repeat(32)) {
+					date_string = date_string.split(':').slice(0, -1).join(':')
+					date_string = date_string + ":" + ("00" + first).slice(-2)
+					console.log(date_string);
+					console.log(first + ", " + last);
+					console.log(id)
+				}
+				if (id == '02'.repeat(32)) {
+					date_string = date_string.split(':').slice(0, -1).join(':')
+					date_string = date_string + ":" + ("00" + first).slice(-2)
+					console.log(id)
+				}
+				array_row = [date_string, epoch_minute, first, last,
+					mean37, n37, min37, max37, std237,
+					mean38, n38, min38, max38, std238,
+					mean39, n39, min39, max39, std239,
+					flag, flag2, id
+				]
+				means = [];
+				if (n37) means.push(mean37);
+				if (n38) means.push(mean38);
+				if (n39) means.push(mean39);
+				if (means.length == 0) rssi = 0;
+				else rssi = Math.min(...means);
+
+				simple_row = [date_string, rssi, id];
+				// array_row = [flag, flag2]
+				// Add checks before we add to file
+				// 1.. Valid crypto flag==7
+				// 2.. Duration is greater than >30 seconds
+				// 
+				if (flag == 7) {
+					matrix.push(array_row);
+					simple_m.push(simple_row);
+				} else {
+					console.log('index: ' + index);
+					console.log(array_row);
+				}
+				// console.log(index + ":" + flag);
+			}
+			console.log("done writing rows that don't pass");
+			// console.log(matrix);
+			var filename = "write.xlsb";
+
+			var data = [
+				[1, 2, 3],
+				[true, false, null, "sheetjs"],
+				["foo", "bar", new Date("2014-02-19T14:30Z"), "0.3"],
+				["baz", null, "qux"]
+			]
+			// console.log(data);
+			var ws_name = "SheetJS";
+
+			var wb = XLSX.utils.book_new(),
+				ws = XLSX.utils.aoa_to_sheet(matrix);
+
+			/* add worksheet to workbook */
+			XLSX.utils.book_append_sheet(wb, ws, ws_name);
+
+			/* write workbook */
+			if (WRITE_CSV) XLSX.writeFile(wb, file.name + '.csv');
+
+			show_data(simple_m);
+			grid.addColumn({
+				defaultValue: 0,
+				title: 'close encounter',
+				type: 'number',
+				name: 'close encounter'
+			});
+			grid.autosize();
+			grid.setColumnWidth(2, 110);
+			let col3_width = Math.max(150, div_grid.offsetWidth - 400);
+			grid.setColumnWidth(3, col3_width);
+			document.getElementById('save').disabled = false;
+			document.getElementById('plot').disabled = false;
+			this.filename = file.name + '.marked.csv';
+			var y = document.getElementById('div_grid');
+			console.log(y.innerHTML);
+			this.y = y;
+			var x = document.getElementsByTagName("canvas-datagrid");
+			console.log(x[0]);
+			// x.parentNode.removeChild(x);
+			this.x = x[0];
+			// plot_data();
+		}
+		document.querySelector('#plot').addEventListener('click', event => {
+			plot_data_v2();
+
+		});
+
+		function plot_data_v2() {
+			var raw = grid.data
+
+			let ids = raw.map(function (value) {
+				return value[2];
+			})
+			var unique = [...new Set(ids)];
+			// console.log(unique);            
+
+			var data = {};
+			for (idx in unique) {
+				var interesting = raw.filter(function (value) {
+					return value[2] == unique[idx];
+				});
+				d = {
+					type: 'scatter',
+					mode: 'markers',
+					name: unique[idx].substring(0, 6),
+					x: interesting.map(function (value, index) {
+						return value[0];
+					}),
+					y: interesting.map(function (value, index) {
+						return -value[1];
+					})
+				}
+				data[unique[idx]] = d;
+			}
+			delete data['01'.repeat(32)];
+			delete data['02'.repeat(32)];
+			/*  I don't know why this doesn't work...
+			function setBubblePlot(chosenEncounter) {
+			    let pdiv = document.querySelector('#plotDiv');
+			    this.pdiv = pdiv;
+			    if (chosenEncounter == 'all') {
+			        var d = Object.values(data);
+
+			    } else {
+			        var d = data[chosenEncounter];
+			    }
+			    var layout = {
+			        title: 'all'
+			    };
+
+			    console.log(d);
+			    Plotly.newPlot('plotDiv', d, layout);
+			}
+			*/
+
+			function setBubblePlot(chosenEncounter) {
+				let pdiv = document.querySelector('#plotDiv');
+				if (chosenEncounter == 'all') {
+					for (i in pdiv.data) {
+						delete pdiv.data[i].visible;
+					}
+				} else {
+					for (i in pdiv.data) {
+						if (chosenEncounter.startsWith(pdiv.data[i].name)) {
+							delete pdiv.data[i].visible;
+						} else {
+							pdiv.data[i].visible = 'legendonly';
+							// console.log(pdiv.data[i].name);
+						}
+					}
+
+				}
+				update = {
+					title: chosenEncounter.substring(0, 8) + "..."
+				};
+				Plotly.redraw('plotDiv');
+				Plotly.relayout('plotDiv', update);
+			}
+
+			function build_region(start, stop) {
+				return {
+					type: 'rect',
+					// x-reference is assigned to the x-values
+					xref: 'x',
+					// y-reference is assigned to the plot paper [0,1]
+					yref: 'paper',
+					x0: start,
+					y0: 0,
+					x1: stop,
+					y1: 1,
+					fillcolor: 'lightsalmon',
+					opacity: 0.2,
+					line: {
+						width: 0
+					}
+
+				};
+			}
+
+			function firstPlot() {
+				// get all the traces
+				var d = Object.values(data);
+				var mark = raw.filter(function (value) {
+					return value[2] == '01'.repeat(32);
+				});
+				console.log(mark);
+				mark_x = mark.map(function (value, index) {
+					return value[0];
+				});
+				var mark_lines = [];
+				for (i in mark_x) {
+					line = {
+						type: 'line',
+						// x-reference is assigned to the x-values
+						xref: 'x',
+						// y-reference is assigned to the plot paper [0,1]
+						yref: 'paper',
+						x0: mark_x[i],
+						y0: 0,
+						x1: mark_x[i],
+						y1: 1,
+						line: {
+							color: 'rgb(55, 128, 191)',
+							width: 1,
+							dash: "10px,20px,10px"
+						}
+					};
+					mark_lines.push(line);
+					// console.log(line);
+				}
+				unmark = raw.filter(function (value) {
+					return value[2] == '02'.repeat(32);
+				});
+				console.log(unmark);
+				unmark_x = unmark.map(function (value, index) {
+					return value[0];
+				});
+				for (i in unmark_x) {
+					line = {
+						type: 'line',
+						// x-reference is assigned to the x-values
+						xref: 'x',
+						// y-reference is assigned to the plot paper [0,1]
+						yref: 'paper',
+						x0: unmark_x[i],
+						y0: 0,
+						x1: unmark_x[i],
+						y1: 1,
+						line: {
+							color: 'rgb(50, 171, 96)',
+							width: 1,
+							dash: '20px,20px,10px'
+						}
+					};
+					mark_lines.push(line);
+					// console.log(line);
+				}
+				// console.log(mark_lines);
+				for (i in unmark_x) {
+					var interesting = mark_x.filter(function (value) {
+						return value < unmark_x[i];
+					});
+					if (interesting.length > 0) {
+						console.log(interesting.slice(-1)[0]);
+						console.log(unmark_x[i]);
+						rect = build_region(interesting.slice(-1)[0], unmark_x[i]);
+						mark_lines.push(rect);
+						console.log(rect);
+					}
+				}
+
+				var layout = {
+					title: 'all',
+					margin: {
+						l: 40,
+						r: 100,
+						b: 50,
+						t: 30,
+						pad: 10
+					},
+					shapes: mark_lines
+				};
+
+				// console.log(d);
+				Plotly.newPlot('plotDiv', d, layout, {
+					displayModeBar: true
+				}, {
+					responsive: true
+				});
+				/*
+				this.p = p
+				this.pdiv = document.querySelector('#plotDiv');
+				console.log(p);*/
+			};
+
+			var encounterSelector = document.querySelector('.encounter_selector');
+			encounterSelector.disabled = false;
+
+			function assignOptions(textArray, selector) {
+				// add 'all' option first
+				var currentOption = document.createElement('option');
+				currentOption.text = 'all';
+				selector.appendChild(currentOption);
+				// add individual options next
+				for (var i = 0; i < textArray.length; i++) {
+					currentOption = document.createElement('option');
+					currentOption.text = textArray[i];
+					selector.appendChild(currentOption);
+				}
+			}
+
+			assignOptions(unique, encounterSelector);
+
+			function updateEncounter() {
+				setBubblePlot(encounterSelector.value);
+			}
+			console.log(encounterSelector);
+			encounterSelector.addEventListener('change', updateEncounter, false);
+			firstPlot();
+			setBubblePlot('all');
+		}
+
+		function plot_data() {
+			var raw = grid.data
+			var unique = [...new Set(raw.map(function (value) {
+				return value[2];
+			}))];
+			// console.log(unique);
+
+			let b = {};
+			ids = raw.map(function (value) {
+				return value[2];
+			})
+			ids.forEach(el => {
+				b[el] = (b[el] || 0) + 1;
+			})
+			// console.log(b);
+
+			data = [];
+			for (idx in unique) {
+				var interesting = raw.filter(function (value) {
+					return value[2] == unique[idx];
+				});
+				d = {
+					type: 'scatter',
+					mode: 'markers',
+					name: unique[idx].substring(0, 6),
+					x: interesting.map(function (value, index) {
+						return value[0];
+					}),
+					y: interesting.map(function (value, index) {
+						return -value[1];
+					})
+				}
+				data.push(d);
+			}
+			/*
+			var data = [{
+			    type: 'scatter',
+			    mode: 'markers',
+			    x: x_values,
+			    y: y_values
+			    
+			    x: interesting.map(function(value, index) {
+			        return value[0];
+			    }),
+			    y: interesting.map(function(value, index) {
+			        return -value[1];
+			    })
+
+			}]
+			*/
+			var layout = {
+				yaxis: {
+					type: 'linear'
+				}
+			}
+			Plotly.newPlot('plotDiv', data, layout)
+		}
+
+		function outputsize() {
+			console.log("grid resize");
+			console.log(div_grid.offsetWidth);
+			if (grid != 0) {
+				let col3_width = Math.max(150, div_grid.offsetWidth - 400);
+				grid.setColumnWidth(3, col3_width);
+				console.log('new width', col3_width);
+
+				grid.draw();
+			}
+		}
+		outputsize()
+
+		new ResizeObserver(outputsize).observe(div_grid)
+
+		document.querySelector('#save').addEventListener('click', event => {
+			var ws_name = "SheetJS";
+
+			// this is a hack... use global variable grid
+			console.log(grid.changes);
+			for (index = 0; index < grid.changes.length; index++) {
+				item = grid.changes[index];
+				// console.log(item);
+				if (item) {
+					key = 'close encounter';
+					if (key in item) {
+						grid.data[index].push(item[key]);
+						console.log(index + ": " + item[key]);
+					}
+				}
+			}
+			var titles = [];
+			for (i in grid.schema) {
+
+				titles.push(grid.schema[i]['title']);
+			}
+			grid.data.unshift(titles);
+			var wb = XLSX.utils.book_new(),
+				ws = XLSX.utils.aoa_to_sheet(grid.data);
+
+			/* add worksheet to workbook */
+			XLSX.utils.book_append_sheet(wb, ws, ws_name);
+
+			/* write workbook */
+			XLSX.writeFile(wb, this.filename + '.csv');
+			grid.data = grid.data.slice(1);
+
+		});
 
 
-        const processFile = (file) => {
-            // we define fr as a new instance of FileReader
-            const fr = new FileReader();
+		const processFile = (file) => {
+			// we define fr as a new instance of FileReader
+			const fr = new FileReader();
 
-            fr.readAsArrayBuffer(file);
-            // Handle progress, success, and errors
-            // fr.onprogress = updateProgress;
-            fr.onerror = errorHandler;
-            fr.onabort = () => changeStatus('Start Loading');
-            fr.onloadstart = () => changeStatus('Start Loading');
-            fr.onload = function(event) {
-                changeStatus('Loaded');
-                console.log('onload event: ' + event);
-                data = event.target.result
-                console.log('result: ' + data);
-                console.log(data)
-                console.log('typeof(data): ' + typeof(data));
-                parse_binary(data, file);
-            };
-            fr.onloadend = () => loaded;
-            // Here you can perform some operations on the data asynchronously
-            fr.onprogress = setProgress;
-        }
+			fr.readAsArrayBuffer(file);
+			// Handle progress, success, and errors
+			// fr.onprogress = updateProgress;
+			fr.onerror = errorHandler;
+			fr.onabort = () => changeStatus('Start Loading');
+			fr.onloadstart = () => changeStatus('Start Loading');
+			fr.onload = function (event) {
+				changeStatus('Loaded');
+				console.log('onload event: ' + event);
+				data = event.target.result
+				console.log('result: ' + data);
+				console.log(data)
+				console.log('typeof(data): ' + typeof (data));
+				parse_binary(data, file);
+			};
+			fr.onloadend = () => loaded;
+			// Here you can perform some operations on the data asynchronously
+			fr.onprogress = setProgress;
+		}
 
-        // Updates the value of the progress bar
-        const setProgress = (e) => {
-            // The target is the file reader
-            const fr = e.target;
-            const loadingPercentage = 100 * e.loaded / e.total;
-            document.getElementById('progress-bar').value = loadingPercentage;
-        }
+		// Updates the value of the progress bar
+		const setProgress = (e) => {
+			// The target is the file reader
+			const fr = e.target;
+			const loadingPercentage = 100 * e.loaded / e.total;
+			document.getElementById('progress-bar').value = loadingPercentage;
+		}
 
-        const changeStatus = (status) => {
-            document.getElementById('status').innerHTML = status
-        }
+		const changeStatus = (status) => {
+			document.getElementById('status').innerHTML = status
+		}
 
-        const loaded = (e) => {
-            changeStatus('Load ended!');
-            const fr = e.target
-            var result = fr.result;
-            console.log('result:')
-            console.log(result)
-            // Here we can send the result to a server for example
-        }
+		const loaded = (e) => {
+			changeStatus('Load ended!');
+			const fr = e.target
+			var result = fr.result;
+			console.log('result:')
+			console.log(result)
+			// Here we can send the result to a server for example
+		}
 
-        const errorHandler = (e) => {
-            changeStatus("Error: " + e.target.error.name)
-        }
-
-    </script>
+		const errorHandler = (e) => {
+			changeStatus("Error: " + e.target.error.name)
+		}
+	</script>
 </body>
 
 </html>
