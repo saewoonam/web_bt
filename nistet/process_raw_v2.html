@@ -91,9 +91,9 @@
 		function outputsize() {
 			console.log("grid resize: div_grid(%d) grid(%d) ", div_grid.offsetWidth, grid.offsetWidth);
 			if (grid != 0) {
-				var remainder = grid.getColummnWidth(0) + grid.getColummnWidth(1) + grid.getColummnWidth(3) + 75;
-				let col2_width = Math.min(Math.max(150, div_grid.offsetWidth - remainder), 600);
-				grid.setColumnWidth(2, col2_width);
+				var remainder = grid.getColummnWidth(0) + grid.getColummnWidth(1) + grid.getColummnWidth(2) + grid.getColummnWidth(3) + 75;
+				let col4_width = Math.min(Math.max(150, div_grid.offsetWidth - remainder), 600);
+				grid.setColumnWidth(4, col4_width);
 				grid.resize(true);
 				console.log("post resize: grid(%d) ", grid.offsetWidth);
 			}
@@ -128,6 +128,11 @@
 							title: 'Close Encounter',
 							type: 'boolean',
 							name: 'close encounter'
+						},
+						{
+							title: 'Additional Notes',
+							type: 'string',
+							name: 'notes'
 						}
 					],
 					filters: {
@@ -195,11 +200,15 @@
 						toggle_boolean_cell(e.cell);
 					}
 				});
+				grid.setColumnWidth(0, grid.findColumnMaxTextLength('time'));
+				grid.setColumnWidth(1, grid.findColumnMaxTextLength('rssi'));
+				grid.setColumnWidth(2, 100);
+				grid.setColumnWidth(3, 25);
+				grid.setColumnWidth(4, 150);
 			} else {
 				grid.data = matrix;
 				grid.draw();
 			}
-			grid.autosize();
 			outputsize();
 		}
 
