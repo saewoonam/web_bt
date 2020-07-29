@@ -92,7 +92,7 @@
 			console.log("grid resize: div_grid(%d) grid(%d) ", div_grid.offsetWidth, grid.offsetWidth);
 			if (grid != 0) {
 				var remainder = grid.getColummnWidth(0) + grid.getColummnWidth(1) + grid.getColummnWidth(2) + grid.getColummnWidth(3) + 75;
-				let col4_width = Math.min(Math.max(150, div_grid.offsetWidth - remainder), 600);
+				let col4_width = Math.max(grid.findColumnMaxTextLength('notes'), div_grid.offsetWidth - remainder);
 				grid.setColumnWidth(4, col4_width);
 				grid.resize(true);
 				console.log("post resize: grid(%d) ", grid.offsetWidth);
@@ -201,10 +201,10 @@
 					}
 				});
 				grid.setColumnWidth(0, grid.findColumnMaxTextLength('time'));
-				grid.setColumnWidth(1, grid.findColumnMaxTextLength('rssi'));
-				grid.setColumnWidth(2, 100);
-				grid.setColumnWidth(3, 25);
-				grid.setColumnWidth(4, 150);
+				grid.setColumnWidth(1, Math.min(grid.findColumnMaxTextLength('rssi'), grid.style.minColumnWidth));
+				grid.setColumnWidth(2, grid.style.minColumnWidth * 2);
+				grid.setColumnWidth(3, grid.style.minColumnWidth);
+				grid.setColumnWidth(4, grid.style.minColumnWidth * 4);
 			} else {
 				grid.data = matrix;
 				grid.draw();
