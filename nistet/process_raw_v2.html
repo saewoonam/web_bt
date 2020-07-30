@@ -23,6 +23,15 @@
 	<progress value="0" max="100" id="progress-bar"></progress>
 	<div id="status"></div>
 	<h1>Mark encounters after file is loaded</h1>
+	<ul>
+		<li>Red lines indicate a possible encounter, determined by RSSI > -60.</li>
+		<li>Yellow lines indicate the user pressed that an interaction was started or stopped.
+			<ul>
+				<li>01 repeating lines - encounter started</li>
+				<li>02 repeating lines - encounter stopped</li>
+			</ul>
+		</li>
+	</ul>
 	<p id="p_grid">
 		<div id="div_grid"></div>
 	</p>
@@ -562,7 +571,6 @@
 
 			var encounterSelector = document.querySelector('.encounter_selector');
 			encounterSelector.disabled = false;
-
 			function assignOptions(textArray, selector) {
 				// add 'all' option first
 				var currentOption = document.createElement('option');
@@ -613,10 +621,21 @@
 			XLSX.writeFile(wb, this.filename + '.csv');
 		});
 
-
+		function resetPlot() {
+			var plotDiv = document.querySelector('#plotDiv');
+			Plotly.purge(plotDiv);
+			var encounterSelector = document.querySelector('.encounter_selector');
+			encounterSelector.disabled = true;
+			while (encounterSelector.hasChildNodes()) {
+				encounterSelector.removeChild(encounterSelector.firstChild);
+			}
+		}
 		const processFile = (file) => {
 			// we define fr as a new instance of FileReader
 			const fr = new FileReader();
+
+			// reset the plot when loading a new file
+			resetPlot();
 
 			fr.readAsArrayBuffer(file);
 			// Handle progress, success, and errors
