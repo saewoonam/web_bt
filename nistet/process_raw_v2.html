@@ -570,6 +570,10 @@
 			};
 
 			var encounterSelector = document.querySelector('.encounter_selector');
+			// remove child nodes first -- if there are any
+			while (encounterSelector.hasChildNodes()) {
+				encounterSelector.removeChild(encounterSelector.firstChild);
+			}
 			encounterSelector.disabled = false;
 			function assignOptions(textArray, selector) {
 				// add 'all' option first
