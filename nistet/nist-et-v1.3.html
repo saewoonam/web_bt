@@ -155,7 +155,7 @@
 		</div>
 		<div class='fetch'>
 			<button id="fetch" disabled>fetch</button>&nbsp;&nbsp;&nbsp;&nbsp;
-			<button id="proces" disabled
+			<button id="process"
 				onclick="location.href='https://saewoonam.github.io/web_bt/nistet/process_raw_v2.html';">process
 				downloaded files
 			</button>
@@ -491,6 +491,7 @@
 		for (button in b) {
 			b[button].disabled = true;
 		}
+		document.querySelector("#process").disabled = false;
 		document.querySelector("#connect").disabled = false;
 		stop_blink("recording");
 		document.getElementById("recording").innerHTML = 'Recording Encounters:';
