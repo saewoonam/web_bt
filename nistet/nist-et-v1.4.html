@@ -491,7 +491,7 @@
 				update_battery_indicator(level);
 			})
 			.then(_ => {
-				document.getElementById("mode_r").click()
+				document.getElementById("mode_e").click()
 			})
 			.then(_ => document.querySelector("#name").innerHTML = "connected: " + etDevice.name)
 			.catch(error => {
