@@ -818,6 +818,17 @@
 			console.log(error)
 		});
 	});
+
+	document.querySelector('#read_mode').addEventListener('click', event => {
+		console.log("read_mode");
+		let cmdm = Uint8Array.of('m'.charCodeAt(0))
+		startDataNotifications(handleDatam)
+			.then(_ => writeCmd(cmdm))
+			.then(_ => sleep(100))
+			.catch(error => {
+				console.log(error)
+			});
+	});
 </script>
 
 </html>
