@@ -140,8 +140,8 @@
 		<br>
 	</div>
 	<p>
-		<div class="btn-group2">
-			<button id="mark" class='tricky' disabled>Press when near someone</button>&nbsp;&nbsp;&nbsp;
+		<div hidden class="btn-group2">
+			<button id="mark" class='tricky' hidden disabled>Press when near someone</button>&nbsp;&nbsp;&nbsp;
 			<button id="mark" class='tricky' hidden disabled>Alone</button>
 		</div>
 	</p>
@@ -817,6 +817,17 @@
 		writeCmd(cmd).catch(error => {
 			console.log(error)
 		});
+	});
+
+	document.querySelector('#read_mode').addEventListener('click', event => {
+		console.log("read_mode");
+		let cmdm = Uint8Array.of('m'.charCodeAt(0))
+		startDataNotifications(handleDatam)
+			.then(_ => writeCmd(cmdm))
+			.then(_ => sleep(100))
+			.catch(error => {
+				console.log(error)
+			});
 	});
 </script>
 
