@@ -477,6 +477,7 @@
 			.then(_ => document.querySelector("#name").innerHTML = "connected: " + etDevice.name)
 			.catch(error => {
 				console.log(error)
+				document.getElementById("disconnect").click();
 			});
 	});
 	document.querySelector('#disconnect').addEventListener('click', event => {
@@ -532,6 +533,7 @@
 			})
 			.catch(error => {
 				console.log(error)
+				document.getElementById("disconnect").click()
 			});
 		// .then(() => this.delayPromise(1000))
 	});
@@ -552,7 +554,8 @@
 			.then(_ => update_status("done checking memory"))
 			//.then(() => this.delayPromise(1000))
 			.catch(error => {
-				console.log(error)
+				console.log(error);
+				document.getElementById("disconnect").click();
 			});
 
 	});
@@ -564,6 +567,7 @@
 			.then(_ => document.getElementById("check").click())
 			.catch(error => {
 				console.log(error)
+				document.getElementById("disconnect").click()
 			});
 	});
 
@@ -643,6 +647,7 @@
 		}
 		writeCmd(cmd).catch(error => {
 			console.log(error)
+			document.getElementById("disconnect").click()
 		});
 		update_recording_status_elts(state);
 		/*
@@ -660,6 +665,7 @@
 		let cmd = Uint8Array.of('s'.charCodeAt(0))
 		writeCmd(cmd).catch(error => {
 			console.log(error)
+			document.getElementById("disconnect").click()
 		});
 		document.querySelector('#start').disabled = false;
 		document.querySelector('#stop').disabled = true;
@@ -699,7 +705,8 @@
 			cmd = Uint8Array.of('U'.charCodeAt(0))
 		}
 		writeCmd(cmd).catch(error => {
-			console.log(error)
+			console.log(error);
+			document.getElementById("disconnect").click();
 		});
 		update_mark_button();
 		console.log(cmd);
@@ -742,6 +749,7 @@
 			})
 			.catch(error => {
 				console.log(error)
+				document.getElementById("disconnect").click();
 			});
 
 	});
@@ -773,7 +781,8 @@
 			.then(_ => writeData(time_ab))
 			.then(_ => writeCmd(cmdO))
 			.catch(error => {
-				console.log(error)
+				console.log(error);
+				document.getElementById("disconnect").click();
 			});
 	});
 </script>

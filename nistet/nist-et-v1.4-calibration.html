@@ -140,8 +140,8 @@
 		<br>
 	</div>
 	<p>
-		<div class="btn-group2">
-			<button id="mark" class='tricky' disabled>Press when near someone</button>&nbsp;&nbsp;&nbsp;
+		<div hidden class="btn-group2">
+			<button id="mark" class='tricky' hidden disabled>Press when near someone</button>&nbsp;&nbsp;&nbsp;
 			<button id="mark" class='tricky' hidden disabled>Alone</button>
 		</div>
 	</p>
@@ -168,6 +168,22 @@
 	<p>
 		<h3 id="status">status:</h3>
 	</p>
+	<div>
+		<button id="read_mode" disabled>read mode from device</button>&nbsp;&nbsp;&nbsp;&nbsp;
+		<span id="mode_label">??</span>
+	</div>
+	<div hidden>
+		<p>
+			<div>
+				<button id="mode_r" disabled>set mode raw (0)</button>&nbsp;&nbsp;&nbsp;&nbsp;
+				<button id="mode_e" disabled>set mode encounter(1)</button>
+			</div>
+		</p>
+		<div>
+			<button id="read_mode" disabled>read mode from device</button>&nbsp;&nbsp;&nbsp;&nbsp;
+			<span id="mode_label">??</span>
+		</div>
+	</div>
 	<p>
 		<div hidden class="btn-group1">
 			<button hidden id="counts">get counts</button>
@@ -474,9 +490,13 @@
 				let level = value.getUint8(0);
 				update_battery_indicator(level);
 			})
+			.then(_ => {
+				document.getElementById("mode_r").click()
+			})
 			.then(_ => document.querySelector("#name").innerHTML = "connected: " + etDevice.name)
 			.catch(error => {
 				console.log(error)
+				document.getElementById("disconnect").click();
 			});
 	});
 	document.querySelector('#disconnect').addEventListener('click', event => {
@@ -532,6 +552,7 @@
 			})
 			.catch(error => {
 				console.log(error)
+				document.getElementById("disconnect").click()
 			});
 		// .then(() => this.delayPromise(1000))
 	});
@@ -552,7 +573,8 @@
 			.then(_ => update_status("done checking memory"))
 			//.then(() => this.delayPromise(1000))
 			.catch(error => {
-				console.log(error)
+				console.log(error);
+				document.getElementById("disconnect").click();
 			});
 
 	});
@@ -564,6 +586,7 @@
 			.then(_ => document.getElementById("check").click())
 			.catch(error => {
 				console.log(error)
+				document.getElementById("disconnect").click()
 			});
 	});
 
@@ -643,6 +666,7 @@
 		}
 		writeCmd(cmd).catch(error => {
 			console.log(error)
+			document.getElementById("disconnect").click()
 		});
 		update_recording_status_elts(state);
 		/*
@@ -660,6 +684,7 @@
 		let cmd = Uint8Array.of('s'.charCodeAt(0))
 		writeCmd(cmd).catch(error => {
 			console.log(error)
+			document.getElementById("disconnect").click()
 		});
 		document.querySelector('#start').disabled = false;
 		document.querySelector('#stop').disabled = true;
@@ -699,7 +724,8 @@
 			cmd = Uint8Array.of('U'.charCodeAt(0))
 		}
 		writeCmd(cmd).catch(error => {
-			console.log(error)
+			console.log(error);
+			document.getElementById("disconnect").click();
 		});
 		update_mark_button();
 		console.log(cmd);
@@ -742,6 +768,7 @@
 			})
 			.catch(error => {
 				console.log(error)
+				document.getElementById("disconnect").click();
 			});
 
 	});
@@ -772,6 +799,32 @@
 			})
 			.then(_ => writeData(time_ab))
 			.then(_ => writeCmd(cmdO))
+			.catch(error => {
+				console.log(error);
+				document.getElementById("disconnect").click();
+			});
+	});
+
+	document.querySelector('#mode_r').addEventListener('click', event => {
+		let cmd = Uint8Array.of('R'.charCodeAt(0))
+		writeCmd(cmd).catch(error => {
+			console.log(error)
+		});
+	});
+
+	document.querySelector('#mode_e').addEventListener('click', event => {
+		let cmd = Uint8Array.of('E'.charCodeAt(0))
+		writeCmd(cmd).catch(error => {
+			console.log(error)
+		});
+	});
+
+	document.querySelector('#read_mode').addEventListener('click', event => {
+		console.log("read_mode");
+		let cmdm = Uint8Array.of('m'.charCodeAt(0))
+		startDataNotifications(handleDatam)
+			.then(_ => writeCmd(cmdm))
+			.then(_ => sleep(100))
 			.catch(error => {
 				console.log(error)
 			});

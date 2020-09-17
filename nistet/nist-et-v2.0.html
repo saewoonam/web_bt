@@ -124,9 +124,9 @@
 
 		<div>
 			<button id="info" disabled>refresh</button>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-			<button id="A" disabled>set clock</button>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+			<button id="A" disabled hidden>set clock</button>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 			<button id="erase" disabled>erase flash</button>
-			<button id="check" hidden disabled>check memory</button>
+			<button id="check" disabled hidden>check memory</button>
 
 		</div>
 	</p>
@@ -134,6 +134,20 @@
 		<div class="btn-group2">
 			<button id="start" class='tricky' disabled>start recording</button>
 			<button id="stop" disabled hidden>stop recording</button>
+		</div>
+	</p>
+
+	<p>
+		<div class="btn-group2" hidden>
+			<button id="raw" disabled>raw mode</button>
+			<button id="encounter" disabled>encounter mode</button>
+		</div>
+	</p>
+	<p>
+		<div class="btn-group2">
+			<button id="speak" disabled>speak</button>
+			<button id="alarm" disabled>alarm</button>
+			<!-- <button id="encounter" disabled>encounter mode</button> -->
 		</div>
 	</p>
 	<div style="line-height:0%;">
@@ -180,6 +194,7 @@
 	var etDevice;
 	var service = "7b183224-9168-443e-a927-7aeea07e8105";
 	var mobile = false;
+	var device_state = 0xFF;
 	console.log(document.getElementById("fileprogress"));
 	console.log(document.getElementById("fileprogress").style.visibility);
 	console.log(document.getElementById("fileprogress").hidden);
@@ -209,9 +224,13 @@
 		update_status('Requesting any Bluetooth Device...');
 		let options = {
 			"filters": [{
-				"namePrefix": "NIST",
-				"services": [service]
-			}]
+					"namePrefix": "NIST",
+					"services": [service]
+				},
+				{
+					"services": [0xfd6f]
+				}
+			]
 		};
 		return navigator.bluetooth.requestDevice(options)
 			.then(device => {
@@ -278,10 +297,10 @@
 			.then(characteristic => characteristic.removeEventListener('characteristicvaluechanged', listener));
 	}
 
-	function handleDataI(event) {
-		var value = event.target.value.getUint8();
+	function update_status_indicators(value) {
 		var msg;
-		console.log('handleDataI received ' + value);
+		console.log('update status indicators ' + value);
+		// update whether recording
 		switch (value & 0x01) {
 			case 0:
 				msg = 'Off';
@@ -293,7 +312,8 @@
 		update_recording_status_elts(value & 0x01);
 		msg = "Logging to flash: " + msg;
 		console.log(msg)
-		var mark_bool = value > 2;
+		// update whether we are near someone
+		var mark_bool = (value & (1 << 1)) > 0;
 
 		let mark_msg = 'Press when near someone';
 		let unmark_msg = 'Press when alone';
@@ -306,8 +326,6 @@
 			elt.innerHTML = mark_msg;
 		}
 		update_mark_button();
-		stopDataNotifications(handleDataI);
-
 	}
 
 
@@ -449,10 +467,15 @@
 		writeData(get_idx_array);
 	}
 
+	var connectioon_heartbeat;
 
+	function check_connection() {
+		console.log("Check if BT device is still there.");
+	};
 	document.querySelector('#connect').addEventListener('click', event => {
 		console.log("connect");
 		update_status("connecting");
+		connection_heartbeat = setInterval(check_connection, 1000);
 		requestDevice()
 			.then(_ => {
 				console.log(etDevice);
@@ -464,19 +487,21 @@
 					b[button].disabled = false;
 				}
 			})
-			.then(value => {
-				startDataNotifications(handleDataI);
-				let cmd = Uint8Array.of('I'.charCodeAt(0))
-				writeCmd(cmd)
+			.then(() => {
+				// click on get info button
+				document.getElementById("info").click();
+
+				console.log("click refresh button");
 			})
-			.then(() => readBattery())
-			.then(value => {
-				let level = value.getUint8(0);
-				update_battery_indicator(level);
-			})
+			// .then(() => readBattery())
+			// .then(value => {
+			// 	let level = value.getUint8(0);
+			// 	update_battery_indicator(level);
+			// })
 			.then(_ => document.querySelector("#name").innerHTML = "connected: " + etDevice.name)
 			.catch(error => {
 				console.log(error)
+				document.getElementById("disconnect").click();
 			});
 	});
 	document.querySelector('#disconnect').addEventListener('click', event => {
@@ -486,7 +511,7 @@
 		document.getElementById("battery_text").innerHTML = "battery: ???";
 		// document.getElementById("counts").value = 0;
 		// document.getElementById("fileprogress").value = 0;
-
+		clearInterval(connection_heartbeat);
 		var b = document.querySelectorAll("button")
 		for (button in b) {
 			b[button].disabled = true;
@@ -521,9 +546,22 @@
 
 	document.querySelector('#info').addEventListener('click', event => {
 		console.log("info");
-		let cmd = Uint8Array.of('I'.charCodeAt(0));
-		startDataNotifications(handleDataI)
-			.then(() => writeCmd(cmd))
+		readCounts()
+			.then(value => {
+				//let count = value.getUint32(0, true);
+				let count = value.getUint16(0, true);
+				update_memory_indicator(count);
+				device_state = value.getUint8(3);
+				update_status_indicators(device_state);
+			})
+			.then(() => {
+				if (device_state & (1 << 2)) {
+					console.log("Need to update clock");
+
+					document.getElementById("A").click()
+
+				}
+			})
 			.then(() => console.log("read battery"))
 			.then(() => readBattery())
 			.then(value => {
@@ -532,6 +570,8 @@
 			})
 			.catch(error => {
 				console.log(error)
+				this.e = error;
+				document.getElementById("disconnect").click()
 			});
 		// .then(() => this.delayPromise(1000))
 	});
@@ -542,17 +582,25 @@
 		document.getElementById("counts_text").innerHTML = count + " / 32768";
 	}
 
+	function update_status_indicator(status) {
+		console.log('Update status indicators', status);
+	}
+
 	document.querySelector('#check').addEventListener('click', event => {
 		console.log("check flash memory")
 		readCounts()
 			.then(value => {
-				let count = value.getUint32(0, true);
+				//let count = value.getUint32(0, true);
+				let count = value.getUint16(0, true);
 				update_memory_indicator(count);
+				let status = value.getUint8(3);
+				update_status_indicators(status);
 			})
 			.then(_ => update_status("done checking memory"))
 			//.then(() => this.delayPromise(1000))
 			.catch(error => {
-				console.log(error)
+				console.log(error);
+				document.getElementById("disconnect").click();
 			});
 
 	});
@@ -561,9 +609,48 @@
 		let cmd = Uint8Array.of('C'.charCodeAt(0))
 		writeCmd(cmd)
 			.then(_ => document.getElementById("info").click())
-			.then(_ => document.getElementById("check").click())
+			// .then(_ => document.getElementById("check").click())
 			.catch(error => {
 				console.log(error)
+				this.e = error;
+				// document.getElementById("disconnect").click()
+			});
+	});
+
+	document.querySelector('#speak').addEventListener('click', event => {
+		let cmdS = Uint8Array.of('S'.charCodeAt(0))
+		writeCmd(cmdS)
+			.catch(error => {
+				console.log(error)
+				this.e = error;
+			});
+	});
+	document.querySelector('#alarm').addEventListener('click', event => {
+		let cmdW = Uint8Array.of('W'.charCodeAt(0))
+		writeCmd(cmdW)
+			.catch(error => {
+				console.log(error)
+				this.e = error;
+			});
+	});
+
+	document.querySelector('#raw').addEventListener('click', event => {
+		let cmdR = Uint8Array.of('R'.charCodeAt(0))
+		writeCmd(cmdR)
+			.then(_ => document.getElementById("info").click())
+			.catch(error => {
+				console.log(error)
+				this.e = error;
+			});
+	});
+
+	document.querySelector('#encounter').addEventListener('click', event => {
+		let cmdE = Uint8Array.of('E'.charCodeAt(0))
+		writeCmd(cmdE)
+			.then(_ => document.getElementById("info").click())
+			.catch(error => {
+				console.log(error)
+				this.e = error;
 			});
 	});
 
@@ -643,6 +730,7 @@
 		}
 		writeCmd(cmd).catch(error => {
 			console.log(error)
+			document.getElementById("disconnect").click()
 		});
 		update_recording_status_elts(state);
 		/*
@@ -660,6 +748,7 @@
 		let cmd = Uint8Array.of('s'.charCodeAt(0))
 		writeCmd(cmd).catch(error => {
 			console.log(error)
+			document.getElementById("disconnect").click()
 		});
 		document.querySelector('#start').disabled = false;
 		document.querySelector('#stop').disabled = true;
@@ -699,7 +788,8 @@
 			cmd = Uint8Array.of('U'.charCodeAt(0))
 		}
 		writeCmd(cmd).catch(error => {
-			console.log(error)
+			console.log(error);
+			document.getElementById("disconnect").click();
 		});
 		update_mark_button();
 		console.log(cmd);
@@ -718,13 +808,13 @@
 	*/
 	document.querySelector('#fetch').addEventListener('click', event => {
 		// document.getElementById("start").click()
-		stopDataNotifications(handleDataI)
-			.then(_ => startDataNotifications(handleDataf))
+		startDataNotifications(handleDataf)
 			.then(_ => {
 				return readCounts();
 			})
 			.then(value => {
-				let count = value.getUint32(0, true);
+				// let count = value.getUint32(0, true);
+				let count = value.getUint16(0, true);
 				update_memory_indicator(count);
 				filesize = count * 32;
 			})
@@ -742,6 +832,7 @@
 			})
 			.catch(error => {
 				console.log(error)
+				document.getElementById("disconnect").click();
 			});
 
 	});
@@ -757,7 +848,7 @@
 			.then(_ => sleep(100))
 			.then(_ => {
 				console.log('clicked check, got_time: ' + got_time);
-				got_time = 0;
+				got_time = 0; // reset got_time for next time
 				var mean = parseInt((start_time + stop_time) / 2);
 				let offset = mean % 1000;
 				mean = parseInt(mean / 1000);
@@ -773,7 +864,8 @@
 			.then(_ => writeData(time_ab))
 			.then(_ => writeCmd(cmdO))
 			.catch(error => {
-				console.log(error)
+				console.log(error);
+				document.getElementById("disconnect").click();
 			});
 	});
 </script>
