@@ -106,7 +106,7 @@
 	}
 
 	fieldset {
-		margin-top: 1em;
+		margin-top: 0.5em;
 		border: none;
 	}
 
@@ -151,7 +151,7 @@
 	</fieldset>
 
 	<fieldset>
-		<legend id="name">not connected</legend>
+		<legend><span id="name">not connected</span> <span id="mode_label" class="status">??</span></legend>
 		<button id="connect" class="disconnected">connect</button>
 		<button id="disconnect" class="connected">disconnect</button>
 	</fieldset>
@@ -160,15 +160,11 @@
 		<p>
 			<span id="recording" class="status">Recording Encounters: </span>
 		</p>
-	
-		<p>
+		<p class="encounter">
 			<span id="proximity" class="status">Proximity: </span>
 		</p>
 		<p>
 			<span id="battery_text" class="status">battery: ?? </span>
-		</p>
-		<p>
-			<span id="mode_label" class="status">??</span>
 		</p>
 		<div hidden>
 			<label> memory use</label>
@@ -200,8 +196,8 @@
 			<img id="orientation-image"/>
 		</figure>
 		
-		<input type="range" min="1" max="4" value="1" step="0.5" class="slider" id="calibration-distance">
-		<p id="calibration-distance">Distance: <span id="calibration-distance-output"></span> meter(s)</p>
+		<input type="range" min="0.5" max="4" value="1" step="0.5" class="slider" id="calibration-distance">
+		<p>Distance: <span id="calibration-distance-output"></span> meter(s)</p>
 	</fieldset>
 
 	<fieldset id="recording-fields" class="connected">
@@ -219,8 +215,8 @@
 			<label id="fileprogress_label" style="visibility:hidden;"> file progress</label>
 			<progress id="fileprogress" style="visibility:hidden;" value=0></progress>
 		</div>
-		<button id="fetch" disabled>fetch</button>
-		<a href="process_raw_v2.html">process downloaded files</a>
+		<button id="fetch">fetch</button>
+		<a href="process_raw_v3.html">process downloaded files</a>
 	</fieldset>
 
 	<h3 id="status">status: </h3>
@@ -445,7 +441,6 @@
 		}
 		update_mark_button();
 		stopDataNotifications(handleDataI);
-
 	}
 
 
@@ -551,7 +546,7 @@
 	function fileprogress_state(state) {
 		elt = document.getElementById("fileprogress");
 		elt.style.visibility = state;
-		element.value = 0;
+		elt.value = 0;
 		elt = document.getElementById("fileprogress_label");
 		elt.style.visibility = state;
 	}
@@ -635,16 +630,7 @@
 				disableElementsByClass('connected', false);
 				disableElementsByClass('disconnected', true);
 			})
-			.then(value => {
-				startDataNotifications(handleDataI);
-				let cmd = Uint8Array.of('I'.charCodeAt(0))
-				writeCmd(cmd)
-			})
-			.then(() => readBattery())
-			.then(value => {
-				let level = value.getUint8(0);
-				update_battery_indicator(level);
-			})
+			.then(() => updateDeviceInfo())
 			.then(() => readMode())
 			.then(_ => document.querySelector("#name").innerHTML = "connected: " + etDevice.name)
 			.catch(error => {
@@ -765,6 +751,22 @@
 			});
 	}
 
+	function writeCalibration() {
+		console.log("writing calibration data");
+		calibration_ab = new ArrayBuffer(4);
+		calibration_array = new Uint16Array(calibration_ab);
+		calibration_array[0] = document.getElementById("calibration-distance").value * 100;
+		var orientation;
+		let orientationValue = document.getElementById("orientation").value;
+		if (orientationValue === 'baseline') {
+			orientation = 0;
+		} else {
+			orientation = orientationValue.charCodeAt(0) - 'a'.charCodeAt(0) + 1;
+		}
+		calibration_array[1] = orientation;
+		return writeData(calibration_ab);
+	}
+
 	var blinktask;
 
 	function start_blink(id) {
@@ -839,10 +841,20 @@
 			elt.innerHTML = mark_msg;
 			update_mark_button();
 		}
-		writeCmd(cmd).catch(error => {
-			console.log(error)
-			document.getElementById("disconnect").click()
-		});
+		if (testMode === 'mode_e') {
+			writeCmd(cmd)
+				.catch(error => {
+					console.log(error)
+					document.getElementById("disconnect").click()
+				});
+		} else {
+			writeCalibration()
+				.then(() => writeCmd(cmd))
+				.catch(error => {
+					console.log(error)
+					document.getElementById("disconnect").click()
+				});
+		}
 		update_recording_status_elts(state);
 		/*
 		        let cmd = Uint8Array.of('w'.charCodeAt(0))
