@@ -779,6 +779,20 @@
 		return writeData(calibration_ab);
 	}
 
+	function set_scan_parameters(interval, window) {
+		let cmdB = Uint8Array.of('B'.charCodeAt(0));
+		var scan_params_ab = new ArrayBuffer(4);
+		var scan_view = new DataView(scan_params_ab);
+
+		scan_view.setUint16(0, interval, true);
+		scan_view.setUint16(2, window, true);
+		return writeData(scan_params_ab)
+			.then(_ => writeCmd(cmdB))
+			.catch(error => {
+				console.log(error)
+			});
+	}
+
 	var blinktask;
 
 	function start_blink(id) {
@@ -854,13 +868,15 @@
 			update_mark_button();
 		}
 		if (testMode === 'mode_e') {
-			writeCmd(cmd)
+			set_scan_parameters(320 * 12, 230)
+				.then(() => writeCmd(cmd))
 				.catch(error => {
 					console.log(error)
 					document.getElementById("disconnect").click()
 				});
 		} else {
-			writeCalibration()
+			set_scan_parameters(320, 230)
+				.then(() => writeCalibration())
 				.then(() => writeCmd(cmd))
 				.catch(error => {
 					console.log(error)
