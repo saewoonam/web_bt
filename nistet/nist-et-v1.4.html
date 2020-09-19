@@ -16,6 +16,7 @@
 		font-family: sans-serif;
 		font-size: 1.2rem;
 	}
+
 	button {
 		/*        display: inline-block;*/
 		border: none;
@@ -96,13 +97,14 @@
 		background-size: cover;
 	}
 
-	#encounter, #calibration {
+	#encounter,
+	#calibration {
 		display: inline-block;
 	}
 
 	label {
-	display: inline-block;
-	font-size: larger;
+		display: inline-block;
+		font-size: larger;
 	}
 
 	fieldset {
@@ -115,10 +117,14 @@
 		font-weight: bold;
 	}
 
+	fieldset.tight {
+		line-height: 0.75em;
+	}
+
 	#orientation-figure {
 		margin: 0;
 		width: 200px;
-		height: 200px;
+		height: 100px;
 		background-color: white;
 	}
 
@@ -126,10 +132,12 @@
 		object-fit: contain;
 		width: 100%;
 	}
+
 	#orientation {
 		width: 200px;
 		margin-bottom: 0.5em;
 	}
+
 	#calibration-scenario {
 		border: groove;
 		width: fit-content;
@@ -152,14 +160,15 @@
 
 	<fieldset>
 		<legend><span id="name">not connected</span> <span id="mode_label" class="status">??</span></legend>
+		<br>
 		<button id="connect" class="disconnected">connect</button>
 		<button id="disconnect" class="connected">disconnect</button>
-	</fieldset>
 
-	<fieldset class="connected">
-		<p>
+	</fieldset>
+	<fieldset class="connected tight">
+		<div>
 			<span id="recording" class="status">Recording Encounters: </span>
-		</p>
+		</div>
 		<p class="encounter">
 			<span id="proximity" class="status">Proximity: </span>
 		</p>
@@ -191,11 +200,12 @@
 			<option value="d">D Configuration</option>
 			<option value="e">E Configuration</option>
 			<option value="f">F Configuration</option>
+			<option value="g">G Configuration</option>
 		</select>
 		<figure id="orientation-figure">
-			<img id="orientation-image"/>
+			<img id="orientation-image" />
 		</figure>
-		
+
 		<input type="range" min="0.5" max="4" value="1" step="0.5" class="slider" id="calibration-distance">
 		<p>Distance: <span id="calibration-distance-output"></span> meter(s)</p>
 	</fieldset>
@@ -238,18 +248,20 @@
 <script>
 	function disableElementsByClass(className, disable) {
 		for (el of document.getElementsByClassName(className)) {
-				el.disabled = disable;
+			el.disabled = disable;
 		}
 	}
 	var testMode = 'mode_e';
-	(function() {
+	(function () {
 		disableElementsByClass('connected', true);
 		disableElementsByClass('disconnected', false);
+
 		function hideElements(className, hide) {
 			for (el of document.getElementsByClassName(className)) {
 				el.hidden = hide;
 			}
 		}
+
 		function initHeader() {
 			switch (testMode) {
 				case 'mode_e':
@@ -266,7 +278,7 @@
 					break;
 			}
 		}
-		document.body.addEventListener('change', function(e) {
+		document.body.addEventListener('change', function (e) {
 			let target = e.target;
 			switch (target.id) {
 				case 'encounter':
@@ -471,11 +483,11 @@
 		}
 	}
 
-	let deviceTime = (function() {
+	let deviceTime = (function () {
 		var time_ab = new ArrayBuffer(12);
 		var time_array = new Uint32Array(time_ab);
 
-		return function() {
+		return function () {
 			let cmdO = Uint8Array.of('O'.charCodeAt(0));
 			let cmdA = Uint8Array.of('A'.charCodeAt(0));
 			start_time = (new Date()).getTime();
@@ -880,7 +892,7 @@
 
 	});
 
-	(function() {
+	(function () {
 		var select = document.getElementById("orientation");
 		var image = document.getElementById("orientation-image");
 
@@ -891,19 +903,19 @@
 			image.alt = string.charAt(0).toUpperCase() + string.slice(1) + " Figure";
 		}
 		updateOrientationFigure();
-		select.onchange = function() {
+		select.onchange = function () {
 			console.log('change orientation');
 			updateOrientationFigure();
 		};
 	})();
 
-	(function() {
+	(function () {
 		var slider = document.getElementById("calibration-distance");
 		var output = document.getElementById("calibration-distance-output");
 		output.innerHTML = slider.value; // Display the default slider value
 
 		// Update the current slider value (each time you drag the slider handle)
-		slider.oninput = function() {
+		slider.oninput = function () {
 			output.innerHTML = this.value;
 		};
 	})();
@@ -985,7 +997,7 @@
 
 	});
 
-	(function() {
+	(function () {
 		document.querySelector('#info').addEventListener('click', event => {
 			updateDeviceInfo();
 		});
