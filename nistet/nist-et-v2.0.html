@@ -169,6 +169,7 @@
 		</div>
 		<div class='fetch'>
 			<button id="fetch" disabled>fetch</button>&nbsp;&nbsp;&nbsp;&nbsp;
+			<button id="recent" disabled>recent</button>&nbsp;&nbsp;&nbsp;&nbsp;
 			<button id="process"
 				onclick="location.href='https://saewoonam.github.io/web_bt/nistet/process_raw_v2.html';">process
 				downloaded files
@@ -456,7 +457,17 @@
 			console.log("Got everything exactly. ")
 			get_idx = 0;
 			download(blob);
-			stopDataNotifications(handleDataf);
+			stopDataNotifications(handleDataf)
+				.then(_ => {
+					/* Stop to try to xfer */
+					let value = Uint8Array.of('F'.charCodeAt(0));
+					writeCmd(value);
+					console.log("Trying to send F");
+				})
+				.catch(error => {
+					console.log(error)
+					document.getElementById("disconnect").click();
+				});
 			fileprogress_state('hidden')
 			// disconnect();
 			done = true;
@@ -465,6 +476,22 @@
 
 		get_idx_view.setUint32(0, get_idx, true);
 		writeData(get_idx_array);
+	}
+
+	function handleDatae(event) {
+		var value = event.target.value
+		var msg;
+		if (event.target.value.byteLength == 0) {
+			console.log("in handleDatae... no data in event");
+		}
+		// Should check length first... need to fix this later
+		rcvd_idx = value.getUint32(0, true);
+		if (rcvd_idx == 0xFFFFFFFF) {
+			stopDataNotifications(handleDatae);
+		} else {
+			console.log('rcvd_idx: ' + rcvd_idx);
+			console.log(value.buffer);
+		}
 	}
 
 	var connectioon_heartbeat;
@@ -836,6 +863,23 @@
 			});
 
 	});
+
+	document.querySelector('#recent').addEventListener('click', event => {
+		console.log("recent");
+		startDataNotifications(handleDatae)
+			.then(_ => {
+				/* Start to try to xfer */
+				let value = Uint8Array.of('e'.charCodeAt(0));
+				writeCmd(value);
+				console.log("Trying to send e");
+			})
+			.catch(error => {
+				console.log(error)
+				document.getElementById("disconnect").click();
+			});
+	});
+
+
 	var time_ab = new ArrayBuffer(12);
 	var time_array = new Uint32Array(time_ab);
 

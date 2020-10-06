@@ -619,7 +619,17 @@
 			console.log("Got everything exactly. ")
 			get_idx = 0;
 			download(blob);
-			stopDataNotifications(handleDataf);
+			stopDataNotifications(handleDataf)
+				.then(_ => {
+					/* Stop to try to xfer */
+					let value = Uint8Array.of('F'.charCodeAt(0));
+					writeCmd(value);
+					console.log("Trying to send F");
+				})
+				.catch(error => {
+					console.log(error)
+					document.getElementById("disconnect").click();
+				});
 			fileprogress_state('hidden')
 			// disconnect();
 			done = true;
