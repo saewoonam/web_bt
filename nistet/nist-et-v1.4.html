@@ -159,6 +159,8 @@
 		overflow: auto;
 		resize: both;
 		border: 5px solid red;
+		background-color: #000000;
+		color: #ffffff;
 	}
 </style>
 
@@ -1087,24 +1089,24 @@
 		logDiv.scrollTop = logDiv.scrollHeight;
 	}
 
-	// (function () {
-	// 	var _privateLog = console.log;
-	// 	console.log = function (message) {
-	// 		log(message);
-	// 		_privateLog.apply(console, arguments);
-	// 	}
-	// })();
+	(function () {
+		var _privateLog = console.log;
+		console.log = function (message) {
+			log(message);
+			_privateLog.apply(console, arguments);
+		}
+	})();
 
-	log("hello to log");
+	// log("hello to log");
 
 	document.querySelector('#status').addEventListener('dblclick', event => {
 		elt = document.getElementById("logDiv")
 		if (elt.style.visibility == 'visible') {
-			elt.style.visibility = 'collapse'
+			elt.style.visibility = 'hidden'
 		} else {
 			elt.style.visibility = 'visible'
 		}
-		console.log("toggle hide logDiv: " + elt.style.visibility)
+		// console.log("toggle hide logDiv: " + elt.style.visibility)
 		// alert("header");
 	});
 </script>
