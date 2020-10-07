@@ -146,6 +146,20 @@
 	.slider {
 		width: 90%;
 	}
+
+	#logDiv {
+		font: 16px "Source Sans", helvetica, arial, sans-serif;
+		/* font-weight: 200; */
+		font-family: monospace;
+		display: block;
+		-webkit-border-radius: 6px;
+		width: 100%;
+		height: 100px;
+		text-align: left;
+		overflow: auto;
+		resize: both;
+		border: 5px solid red;
+	}
 </style>
 
 <body>
@@ -243,6 +257,8 @@
 			<button id="readCmd" hidden>readCmd</button>
 		</div>
 	</fieldset>
+
+	<div id="logDiv" style="visibility: hidden;"></div>
 </body>
 
 <script>
@@ -296,9 +312,9 @@
 	var etDevice;
 	var service = "7b183224-9168-443e-a927-7aeea07e8105";
 	var mobile = false;
-	console.log(document.getElementById("fileprogress"));
-	console.log(document.getElementById("fileprogress").style.visibility);
-	console.log(document.getElementById("fileprogress").hidden);
+	// console.log(document.getElementById("fileprogress"));
+	// console.log(document.getElementById("fileprogress").style.visibility);
+	// console.log(document.getElementById("fileprogress").hidden);
 	if (/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
 		// can't get notify working right on android right now
 		// elt = document.getElementById("fetch").hidden = true;
@@ -750,7 +766,7 @@
 	}
 
 	function readMode() {
-		console.log("read_mode");
+		console.log("read_mode (mark nearby)");
 		let cmdm = Uint8Array.of('m'.charCodeAt(0))
 		return startDataNotifications(handleDatam)
 			.then(() => writeCmd(cmdm))
@@ -807,7 +823,7 @@
 
 	function start_blink(id) {
 		blinktask = setInterval(blinker, 1000, id);
-		console.log(blinktask);
+		// console.log(blinktask);
 	}
 
 	function stop_blink(id) {
@@ -953,7 +969,7 @@
 		var status_elt = document.getElementById('proximity');
 		let mark_msg = 'Press when near someone';
 		let unmark_msg = 'Press when alone';
-		console.log(elt);
+		// console.log(elt);
 		if (elt.innerHTML == mark_msg) {
 			status_elt.innerHTML = "Proximity: I am alone"
 			elt.setAttribute('state', "off");
@@ -1062,6 +1078,35 @@
 			readMode();
 		});
 	})();
+
+	function log(msg, newline = true) {
+		logDiv.innerHTML = logDiv.innerHTML + msg;
+		if (newline) {
+			logDiv.innerHTML += "<br />";
+		}
+		logDiv.scrollTop = logDiv.scrollHeight;
+	}
+
+	// (function () {
+	// 	var _privateLog = console.log;
+	// 	console.log = function (message) {
+	// 		log(message);
+	// 		_privateLog.apply(console, arguments);
+	// 	}
+	// })();
+
+	log("hello to log");
+
+	document.querySelector('#status').addEventListener('dblclick', event => {
+		elt = document.getElementById("logDiv")
+		if (elt.style.visibility == 'visible') {
+			elt.style.visibility = 'collapse'
+		} else {
+			elt.style.visibility = 'visible'
+		}
+		console.log("toggle hide logDiv: " + elt.style.visibility)
+		// alert("header");
+	});
 </script>
 
 </html>
