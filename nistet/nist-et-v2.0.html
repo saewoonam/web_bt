@@ -169,6 +169,7 @@
 		</div>
 		<div class='fetch'>
 			<button id="fetch" disabled>fetch</button>&nbsp;&nbsp;&nbsp;&nbsp;
+			<button id="recent" disabled>recent</button>&nbsp;&nbsp;&nbsp;&nbsp;
 			<button id="process"
 				onclick="location.href='https://saewoonam.github.io/web_bt/nistet/process_raw_v2.html';">process
 				downloaded files
@@ -333,7 +334,7 @@
 	var full_time = [0, 0];
 	var start_time, stop_time;
 
-	function handleDataA(event) {
+	function handleDataA_old(event) {
 		// Read time since reboot
 		//  In google chrome, data is coming in two packets???
 		//  I thought it would be 1 packet
@@ -354,6 +355,23 @@
 			console.log(full_time);
 			// got_time = 0;
 		}
+	}
+
+	function handleDataA(event) {
+		// Read time since reboot
+		// In google chrome, data is coming in two packets???
+		// I thought it would be 1 packet
+		var value = event.target.value;
+		let buf = value.buffer;
+		var msg;
+		console.log('handleDataA received ');
+		console.log(value.buffer);
+		time = new Uint32Array(buf);
+		full_time[0] = time[0];
+		full_time[1] = time[1];
+		console.log(time);
+		stop_time = (new Date()).getTime();
+		stopDataNotifications(handleDataA);
 	}
 
 	function download(filecontent) {
@@ -475,6 +493,22 @@
 
 		get_idx_view.setUint32(0, get_idx, true);
 		writeData(get_idx_array);
+	}
+
+	function handleDatae(event) {
+		var value = event.target.value
+		var msg;
+		if (event.target.value.byteLength == 0) {
+			console.log("in handleDatae... no data in event");
+		}
+		// Should check length first... need to fix this later
+		rcvd_idx = value.getUint32(0, true);
+		if (rcvd_idx == 0xFFFFFFFF) {
+			stopDataNotifications(handleDatae);
+		} else {
+			console.log('rcvd_idx: ' + rcvd_idx);
+			console.log(value.buffer);
+		}
 	}
 
 	var connectioon_heartbeat;
@@ -845,6 +879,21 @@
 				document.getElementById("disconnect").click();
 			});
 
+	});
+
+	document.querySelector('#recent').addEventListener('click', event => {
+		console.log("recent");
+		startDataNotifications(handleDatae)
+			.then(_ => {
+				/* Start to try to xfer */
+				let value = Uint8Array.of('e'.charCodeAt(0));
+				writeCmd(value);
+				console.log("Trying to send e");
+			})
+			.catch(error => {
+				console.log(error)
+				document.getElementById("disconnect").click();
+			});
 	});
 
 	var time_ab = new ArrayBuffer(12);
