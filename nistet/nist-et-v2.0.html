@@ -334,7 +334,7 @@
 	var full_time = [0, 0];
 	var start_time, stop_time;
 
-	function handleDataA(event) {
+	function handleDataA_old(event) {
 		// Read time since reboot
 		//  In google chrome, data is coming in two packets???
 		//  I thought it would be 1 packet
@@ -355,6 +355,23 @@
 			console.log(full_time);
 			// got_time = 0;
 		}
+	}
+
+	function handleDataA(event) {
+		// Read time since reboot
+		// In google chrome, data is coming in two packets???
+		// I thought it would be 1 packet
+		var value = event.target.value;
+		let buf = value.buffer;
+		var msg;
+		console.log('handleDataA received ');
+		console.log(value.buffer);
+		time = new Uint32Array(buf);
+		full_time[0] = time[0];
+		full_time[1] = time[1];
+		console.log(time);
+		stop_time = (new Date()).getTime();
+		stopDataNotifications(handleDataA);
 	}
 
 	function download(filecontent) {
