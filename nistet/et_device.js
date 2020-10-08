@@ -1,9 +1,17 @@
-import {
-	SERVICE_UUID,
-	CHARACTERISTICS,
-	COMMANDS
-} from '../config'
+// import {
+// 	SERVICE_UUID,
+// 	CHARACTERISTICS,
+// 	COMMANDS
+// } from '../config'
+// const SERVER_SYNC_URL = 'http://68.183.130.247:8000/upload'
+// const SERVICE_UUID = '7b183224-9168-443e-a927-7aeea07e8105'
 
+// const CHARACTERISTICS = Object.freeze({
+// 	count: '292bd3d2-14ff-45ed-9343-55d125edb721',
+// 	rw: '56cd7757-5f47-4dcd-a787-07d648956068',
+// 	data: 'fec26ec4-6d71-4442-9f81-55bc21d658d6',
+// 	data_req: '398d2a6c-b541-4160-b4b0-c59b4e27a1bb'
+// })
 const COMMAND_TIMEOUT = 5000
 const noop = () => {}
 
@@ -25,6 +33,8 @@ function toBtValue(val) {
 class ET_Device {
 	constructor() {
 		this.device = null;
+		this.battery = 0;
+		this.device_state = -1;
 		this.onDisconnected = this.onDisconnected.bind(this);
 	}
 
@@ -33,12 +43,11 @@ class ET_Device {
 	}
 
 	requestDevice() {
-		console.log('Requesting any Bluetooth Device...');
-		update_status('Requesting any Bluetooth Device...');
+		console.log('Searching for bluetooth devices...');
 		let options = {
 			"filters": [{
 					"namePrefix": "NIST",
-					"services": [service]
+					"services": [SERVICE_UUID]
 				},
 				{
 					"services": [0xfd6f]
@@ -48,14 +57,16 @@ class ET_Device {
 		return navigator.bluetooth.requestDevice(options)
 			.then(device => {
 				this.device = device;
-				this.device.addEventListener('gattserverdisconnected', onDisconnected);
+				// console.log(device, this.device.gatt);
+				this.device.addEventListener('gattserverdisconnected', this.onDisconnected);
 			});
 	}
+
 	connect() {
 		if (!this.device) {
 			return Promise.reject("Device is not connected.");
 		}
-		return this.gatt.connect();
+		return this.device.gatt.connect();
 	}
 
 	disconnect() {
@@ -130,37 +141,37 @@ class ET_Device {
 		}
 
 		return new Promise((resolve, reject) => {
-				assertConnection()
+			assertConnection()
 
-				let timeout = setTimeout(() => {
-					notifyCallback = noop
-					reject(new Error('Command timed out before receiving response via notify'))
-				}, COMMAND_TIMEOUT)
+			let timeout = setTimeout(() => {
+				notifyCallback = noop
+				reject(new Error('Command timed out before receiving response via notify'))
+			}, COMMAND_TIMEOUT)
 
-				function done(res) {
-					clearTimeout(timeout)
-					notifyCallback = noop
+			function done(res) {
+				clearTimeout(timeout)
+				notifyCallback = noop
 
-					try {
-						let data = res && res.value ?
-							new command.returnType(res.value) : []
-						resolve(data)
-					} catch (err) {
-						reject(err)
-					}
+				try {
+					let data = res && res.value ?
+						new command.returnType(res.value) : []
+					resolve(data)
+				} catch (err) {
+					reject(err)
 				}
+			}
 
-				if (command.notify) {
-					notifyCallback = done
-				}
+			if (command.notify) {
+				notifyCallback = done
+			}
 
-				// bluetooth.write({
-				// 	peripheralUUID: connection.UUID,
-				this.write(
-					serviceUUID: SERVICE_UUID,
-					characteristicUUID: CHARACTERISTICS.rw,
-					value: toBtValue(command.value)
-				}).then(res => {
+			// bluetooth.write({
+			// 	peripheralUUID: connection.UUID,
+			this.write({
+				serviceUUID: SERVICE_UUID,
+				characteristicUUID: CHARACTERISTICS.rw,
+				value: toBtValue(command.value)
+			}).then(res => {
 				if (!command.notify) {
 					done(res)
 				}
@@ -170,7 +181,7 @@ class ET_Device {
 			})
 
 		})
-}
+	}
 
 
 }
