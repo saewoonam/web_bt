@@ -19,6 +19,11 @@
  		notify: true,
  		returnType: Uint32Array
  	},
+ 	get_a: {
+ 		value: 'a',
+ 		notify: true,
+ 		returnType: Uint32Array
+ 	},
  	startWritingToFlash: {
  		value: 'w',
  		returnType: Uint8Array

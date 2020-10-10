@@ -128,9 +128,16 @@ class ET_Device {
 	write(args) {
 		return this.device.gatt.getPrimaryService(args['serviceUUID'])
 			.then(service => service.getCharacteristic(args['characteristicUUID']))
-			.then(characteristic => characteristic.wrteValue(args['value']));
+			.then(characteristic => characteristic.writeValue(args['value']));
 
 	}
+
+	assertConnection() {
+		if (!connection) {
+			throw new Error('No connection established')
+		}
+	}
+
 	sendCommand(name) {
 		// adapted  from nativescrip app  https://github.com/CTG-Boulder/nsbt-test
 		// app/plugins/dongle-control.js
@@ -141,20 +148,35 @@ class ET_Device {
 		}
 
 		return new Promise((resolve, reject) => {
-			assertConnection()
+			// this.assertConnection()
+			let notifyCallback;
 
 			let timeout = setTimeout(() => {
 				notifyCallback = noop
 				reject(new Error('Command timed out before receiving response via notify'))
 			}, COMMAND_TIMEOUT)
 
-			function done(res) {
+			function stop() {
+				this.stopDataNotifications(notifyCallback);
+			}
+
+			function done(event) {
+				var res = event.target.value
+				let device = event.target.service.device
+				console.log(device)
 				clearTimeout(timeout)
+				console.log("done res: " + res.buffer);
 				notifyCallback = noop
 
+				device.gatt.getPrimaryService("7b183224-9168-443e-a927-7aeea07e8105")
+					.then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
+					.then(characteristic => characteristic.stopNotifications())
+					.then(characteristic => characteristic.removeEventListener('characteristicvaluechanged', notifyCallback));
+
 				try {
-					let data = res && res.value ?
-						new command.returnType(res.value) : []
+					data = res.buffer;
+					// let data = res && res.value ?
+					// 	new command.returnType(res.value) : []
 					resolve(data)
 				} catch (err) {
 					reject(err)
@@ -163,6 +185,7 @@ class ET_Device {
 
 			if (command.notify) {
 				notifyCallback = done
+				this.startDataNotifications(notifyCallback);
 			}
 
 			// bluetooth.write({

@@ -69,6 +69,14 @@
 				});
 		}
 
+		async function setTime_new() {
+			let uptime = await device.sendCommand('getUptime');
+			console.log("uptime: ", uptime);
+		}
+		async function getTimeOrigin() {
+			let time_origin = await device.sendCommand('get_a');
+			console.log("time_origin: ", time_origin);
+		}
 		document.querySelector('#ble').addEventListener('click', event => {
 			device.requestDevice()
 				//.then(_ => console.log(device))
@@ -94,9 +102,10 @@
 					console.log("device_state: " + device.device_state);
 				})
 				.then(_ => {
-					if ((device.device_state & 0x4) == 4) {
-						setTime()
-					}
+					// if ((device.device_state & 0x4) == 4) {
+					// 	setTime()
+					// }
+					setTime_new();
 				})
 				.catch(error => {
 					console.log(error)
@@ -116,14 +125,12 @@
 
 		var data = [];
 
-		function raw2row(raw) {
+		function checkForMarkOrHeader(raw) {
 			let dv = new DataView(raw)
-			// app.log("created dataview");
-			// app.log("raw length: " + raw.byteLength);
 			let offset = 4;
-			let t = dv.getUint32(offset, true);
+			let t = dv.getUint32(offset, true); // little endian
 			if (t > 0) {
-				/* Check if mark, unmark, etc... */
+				/* Check if mark, unmark, header, etc... */
 				let b = dv.getUint8(offset)
 				let index = offset;
 				do {
@@ -133,34 +140,47 @@
 					index++;
 				} while (index < offset + 32);
 				if (index == offset + 32) {
-					t = -1; // found a tag
+					t = -1; // found a tag 
 					console.log(" found tag");
-				}
-			} // check if first 4 bytes> 0,it is a timestamp
-			if (t > 0) {
-				let row = {}
-				row.timestamp = new Date(t * 60 * 1000).toLocaleString();
-				let sound = new Uint16Array(raw.slice(offset + 12, offset + 12 + 8))
-				let num = dv.getInt8(offset + 11)
-				row.sound = 2048;
-				if (num > 10) {
-					if (sound[1] < iqr_threshold) row.sound = sound[0];
-					if (sound[3] < iqr_threshold) row.sound = (sound[2] < row.sound) ?
-						sound[2] : row.sound;
-				}
-				if (row.sound == 2048) {
-					row.sound = 'NaN';
+				} else {}
+				// check if first 4 bytes > 0, it is a timestamp
+				if (t > 0) {
+					return false;
 				} else {
-					row.sound -= 50;
-					row.sound *= 192 / 19e6 * 343;
-					row.sound = row.sound.toFixed(2);
+					return true;
 				}
-				let rssi = new Int8Array(raw.slice(offset + 12 + 8, offset + 32))
-				row.rssi = (rssi.reduce((acc, data) => acc + data, 0) /
-					rssi.reduce((acc, data) => (data != 0) ? acc + 1 : acc, 0)).toFixed(1)
-				data.push(row)
 			}
 		}
+
+		function raw2row(raw) {
+			let dv = new DataView(raw)
+			let offset = 4;
+			let t = dv.getUint32(offset, true);
+			let row = {}
+			row.timestamp = new Date(t * 60 * 1000).toLocaleString();
+			let sound = new Uint16Array(raw.slice(offset + 12, offset + 12 + 8))
+			let num = dv.getInt8(offset + 11)
+			row.sound = 2048;
+			if (num > 10) {
+				if (sound[1] < iqr_threshold) row.sound = sound[0];
+				if (sound[3] < iqr_threshold) row.sound = (sound[2] < row.sound) ?
+					sound[2] : row.sound;
+			}
+			if (row.sound == 2048) {
+				row.sound = 'NaN';
+			} else {
+				row.sound -= 50;
+				row.sound *= 192 / 19e6 *
+					343;
+				row.sound = row.sound.toFixed(2);
+			}
+			let rssi = new Int8Array(raw.slice(offset + 12 + 8, offset + 32))
+			row.rssi = (rssi.reduce((acc, data) => acc + data, 0) /
+				rssi.reduce((acc, data) => (data != 0) ? acc + 1 : acc, 0)).toFixed(1)
+			return row;
+		}
+
+		var table_data = [];
 
 		function handleDatae(event) {
 			var value = event.target.value
@@ -172,17 +192,22 @@
 			if (rcvd_idx == 0xFFFFFFFF) {
 				console.log("done with recent")
 				device.stopDataNotifications(handleDatae);
-				CreateTableFromJSON(data);
+				CreateTableFromJSON(table_data);
 			} else {
 				console.log('rcvd_idx: ' + rcvd_idx);
 				console.log(value.buffer);
-				raw2row(value.buffer);
+				if (!checkForMarkOrHeader(value.buffer)) {
+					let row = raw2row(value.buffer);
+					console.log("row", row);
+					table_data.push(row);
+					console.log(table_data);
+				}
 			}
 		}
 
 		document.querySelector('#recent').addEventListener('click', event => {
 			console.log("recent");
-			data = []; // clear out any data there.
+			table_data = []; // clear out any data there.
 			device.startDataNotifications(handleDatae)
 				.then(_ => {
 					device.writeCmd(toBtValue("e"))
