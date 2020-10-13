@@ -34,6 +34,8 @@
 	<script type="text/javascript" src="config.js"></script>
 	<script type="text/javascript" src="encounters_table.js"></script>
 	<script type="text/javascript" src="et_device.js"></script>
+	<script type="text/javascript" src="structschema.js"></script>
+
 	<script>
 		var device = new ET_Device()
 
@@ -77,6 +79,105 @@
 			let time_origin = await device.sendCommand('get_a');
 			console.log("time_origin: ", time_origin);
 		}
+
+		async function template(cmd, t, notify = false) {
+			return new Promise(async function (resolve, reject) {
+				let callback = function (event) {
+					var value = event.target.value
+					device.stopDataNotifications(callback);
+					resolve(new t(value.buffer));
+				}
+				if (notify) {
+					await device.startDataNotifications(callback)
+				}
+				await device.writeCmd(toBtValue(cmd))
+				if (!notify) {
+					resolve(true)
+				}
+			})
+		}
+
+		class OutOfOrderException extends Error {
+			constructor() {
+				super('Received block out of order')
+			}
+		}
+
+		class InterruptException extends Error {
+			constructor() {
+				super('Interrupted')
+			}
+		}
+
+		async function fetch(expectedLength) {
+			return new Promise(async function (resolve, reject) {
+				let result = new Uint8Array(expectedLength)
+				let bytesReceived = 0;
+				let blocksReceived = 0;
+				let callback = async function (event) {
+					var value = event.target.value
+					let blockNumber = value.getUint32(0, true);
+					let block = new Uint8Array(value.buffer, 4);
+					if (blockNumber !== blocksReceived) {
+						device.stopDataNotifications(callback);
+						await template("F", Uint8Array, false);
+						return reject(new OutOfOrderException())
+					}
+					result.set(block, bytesReceived);
+					bytesReceived += block.byteLength;
+					blocksReceived++;
+					console.log(blocksReceived, bytesReceived, expectedLength);
+					if (bytesReceived == expectedLength) {
+						device.stopDataNotifications(callback);
+						await template("F", Uint8Array, false);
+						resolve(result);
+					} else {
+						await device.writeData(toBtValue(blocksReceived))
+					}
+				}
+				await device.startDataNotifications(callback)
+				await template("f", Uint8Array, false);
+				await device.writeData(toBtValue(blocksReceived))
+
+			})
+		}
+
+		document.querySelector('#upload').addEventListener('click', async function (event) {
+			await template("G", Uint8Array, false);
+			let value = await template("g", Uint32Array, true);
+			console.log("Got value:", value[0])
+			start_mem = value[0];
+			value = await device.readCounts()
+			stop_mem = value.getUint16(0, true);
+			console.log("start stop mem", start_mem, stop_mem)
+			flash = await fetch((stop_mem - start_mem) << 5);
+			/* filter out marks and headers */
+			data_to_server = []
+			for (let offset = 0; offset < flash.byteLength; offset += 32) {
+				let chunk = flash.slice(offset, offset + 32);
+				let check = checkForMarkOrHeader(chunk.buffer, 0)
+				if (check) {
+					console.log(offset >> 5, chunk.buffer)
+				} else {
+					chunk = flash.slice(offset, offset + 64);
+					dv = new DataView(chunk.buffer);
+					row = getDataFromView(dv)
+					data_to_server.push(row)
+					// console.log(row)
+					// let row = raw2row(chunk.buffer, 0)
+					// console.log(row);
+					offset += 32;
+				}
+			}
+			/* upload to server here */
+			console.log(data_to_server);
+			//
+			// Tell device to mark flash here... uploaded encounters up to here
+			// await template("Y", Uint8Array, false);
+
+		});
+
+
 		document.querySelector('#ble').addEventListener('click', event => {
 			device.requestDevice()
 				//.then(_ => console.log(device))
@@ -102,10 +203,10 @@
 					console.log("device_state: " + device.device_state);
 				})
 				.then(_ => {
-					// if ((device.device_state & 0x4) == 4) {
-					// 	setTime()
-					// }
-					setTime_new();
+					if ((device.device_state & 0x4) == 4) {
+						setTime()
+					}
+					// setTime_new();
 				})
 				.catch(error => {
 					console.log(error)
@@ -125,41 +226,50 @@
 
 		var data = [];
 
-		function checkForMarkOrHeader(raw) {
+		function checkForMarkOrHeader(raw, offset = 4) {
 			let dv = new DataView(raw)
-			let offset = 4;
+			// let offset = 4;
 			let t = dv.getUint32(offset, true); // little endian
+			// let t = new Uint32Array(raw, offset, 1)[0]; // little endian
 			if (t > 0) {
 				/* Check if mark, unmark, header, etc... */
 				let b = dv.getUint8(offset)
+				//let b = new Uint8Array(raw, offset, 1)[0];
 				let index = offset;
 				do {
 					if (b != dv.getUint8(index)) {
+						// if (b != new Uint8Array(raw, index, 1)[0]) {
 						break;
 					}
 					index++;
 				} while (index < offset + 32);
 				if (index == offset + 32) {
-					t = -1; // found a tag 
+					t = -1; /* found a tag */
 					console.log(" found tag");
 				} else {}
-				// check if first 4 bytes > 0, it is a timestamp
+				/* check if first 4 bytes > 0, it is a timestamp */
 				if (t > 0) {
 					return false;
 				} else {
 					return true;
 				}
+			} else {
+				return true;
 			}
 		}
 
-		function raw2row(raw) {
-			let dv = new DataView(raw)
-			let offset = 4;
-			let t = dv.getUint32(offset, true);
+		function raw2row(raw, offset = 4) {
+			//let dv = new DataView(raw)
+			// let offset = 4;
+			let t = new Uint32Array(raw, offset, 1)[0]; // little endian
+
+			// let t = dv.getUint32(offset, true);
 			let row = {}
 			row.timestamp = new Date(t * 60 * 1000).toLocaleString();
 			let sound = new Uint16Array(raw.slice(offset + 12, offset + 12 + 8))
-			let num = dv.getInt8(offset + 11)
+			// let num = dv.getInt8(offset + 11)
+			let num = new Int8Array(raw, offset + 11, 1)[0]
+			// console.log(num);
 			row.sound = 2048;
 			if (num > 10) {
 				if (sound[1] < iqr_threshold) row.sound = sound[0];
@@ -182,33 +292,34 @@
 
 		var table_data = [];
 
-		function handleDatae(event) {
-			var value = event.target.value
-			var msg;
-			if (event.target.value.byteLength == 0) {
-				console.log("in handleDatae... no data in event");
-			}
-			rcvd_idx = value.getUint32(0, true);
-			if (rcvd_idx == 0xFFFFFFFF) {
-				console.log("done with recent")
-				device.stopDataNotifications(handleDatae);
-				CreateTableFromJSON(table_data);
-			} else {
-				console.log('rcvd_idx: ' + rcvd_idx);
-				console.log(value.buffer);
-				if (!checkForMarkOrHeader(value.buffer)) {
-					let row = raw2row(value.buffer);
-					console.log("row", row);
-					table_data.push(row);
-					console.log(table_data);
-				}
-			}
-		}
 
 		document.querySelector('#recent').addEventListener('click', event => {
 			console.log("recent");
 			table_data = []; // clear out any data there.
-			device.startDataNotifications(handleDatae)
+			let callback = function (event) {
+				var value = event.target.value
+				var msg;
+				if (event.target.value.byteLength == 0) {
+					console.log("in handleDatae... no data in event");
+				}
+				rcvd_idx = value.getUint32(0, true);
+				if (rcvd_idx == 0xFFFFFFFF) {
+					console.log("done with recent")
+					device.stopDataNotifications(callback);
+					CreateTableFromJSON(table_data);
+				} else {
+					console.log('rcvd_idx: ' + rcvd_idx);
+					console.log(value.buffer);
+					if (!checkForMarkOrHeader(value.buffer)) {
+						let row = raw2row(value.buffer);
+						console.log("row", row);
+						table_data.push(row);
+						console.log(table_data);
+					}
+				}
+			}
+
+			device.startDataNotifications(callback)
 				.then(_ => {
 					device.writeCmd(toBtValue("e"))
 					console.log("Trying to send e");
