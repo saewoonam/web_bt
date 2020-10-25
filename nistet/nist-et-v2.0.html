@@ -143,6 +143,15 @@
 			<button id="encounter" disabled>encounter mode</button>
 		</div>
 	</p>
+
+
+	<p>
+		<div>
+			<input type="number" id="myNumber" value="0">
+			<button id="set_name" disabled>set name</button>&nbsp;&nbsp;&nbsp;
+		</div>
+	</p>
+
 	<p>
 		<div class="btn-group2">
 			<button id="speak" disabled>speak</button>
@@ -926,6 +935,27 @@
 			.catch(error => {
 				console.log(error);
 				document.getElementById("disconnect").click();
+			});
+	});
+
+	function str2ab(str) {
+		var buf = new ArrayBuffer(str.length); // 2 bytes for each char
+		var bufView = new Uint8Array(buf);
+		for (var i = 0, strLen = str.length; i < strLen; i++) {
+			bufView[i] = str.charCodeAt(i);
+		}
+		return buf;
+	}
+
+	document.querySelector('#set_name').addEventListener('click', event => {
+		let cmd = Uint8Array.of('N'.charCodeAt(0));
+		let num = document.getElementById("myNumber").value;
+		var name = 'NIST' + ("0000" + num).slice(-4);
+		console.log("Trying to set to name: " + name);
+		writeData(str2ab(name))
+			.then(_ => writeCmd(cmd))
+			.catch(error => {
+				console.log(error)
 			});
 	});
 </script>
