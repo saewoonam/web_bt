@@ -334,6 +334,15 @@
 		}
 	}
 
+	function view2string(view) {
+		let length = view.byteLength;
+		const chars = new Uint8Array(length);
+		for (var i = 0; i < length; i++) {
+			chars[i] = view.getUint8(i);
+		}
+		return String.fromCharCode.apply(null, chars);
+	}
+
 	function onDisconnected() {
 		console.log('Device is disconnected.');
 		document.getElementById("disconnect").click();
@@ -411,6 +420,37 @@
 			.then(service => service.getCharacteristic("fec26ec4-6d71-4442-9f81-55bc21d658d6"))
 			.then(characteristic => characteristic.stopNotifications())
 			.then(characteristic => characteristic.removeEventListener('characteristicvaluechanged', listener));
+	}
+
+	function getVersion() {
+		return readDataCallback('v', (value, resolve) => {
+			resolve(view2string(value));
+		});
+	}
+
+	async function readDataCallback(command, onData) {
+		let notifyCallback;
+		function notify(res) {
+		notifyCallback(res);
+		}
+
+		let promise = new Promise((resolve, reject) => {
+		notifyCallback = handle;
+		function handle(event) {
+			onData(event.target.value, resolve, reject);
+		}
+		});
+
+		// wait for everything to happen
+		await startDataNotifications(notify);
+		try {
+		await writeCmd(Uint8Array.of(command.charCodeAt(0)));
+		let result = await promise;
+		// return the result
+		return result;
+		} finally {
+		await stopDataNotifications(notify);
+		}
 	}
 
 	function handleDatam(event) {
@@ -672,7 +712,8 @@
 			})
 			.then(() => updateDeviceInfo())
 			.then(() => readMode())
-			.then(_ => document.querySelector("#name").innerHTML = "connected: " + etDevice.name)
+			.then(() => getVersion())
+			.then(version => document.querySelector("#name").innerHTML = "connected: " + etDevice.name + " (ver: " + version + ")")
 			.catch(error => {
 				console.log(error)
 				document.getElementById("disconnect").click();
